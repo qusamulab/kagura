@@ -10,13 +10,13 @@ Pod::Spec.new do |s|
       - Anti-cheat (MVO, Honey, Telemetry, BBCheck)
       - Platform integrations (Xcode build phase, JSON config)
   DESC
-  s.homepage     = "https://github.com/ykus4/kagura"
+  s.homepage     = "https://github.com/qusamulab/kagura"
   s.license      = { :type => "MIT", :file => "LICENSE" }
   s.author       = { "kagura" => "kagura@example.com" }
   s.ios.deployment_target = "13.0"
   s.osx.deployment_target = "11.0"
 
-  s.source       = { :git => "https://github.com/ykus4/kagura.git",
+  s.source       = { :git => "https://github.com/qusamulab/kagura.git",
                      :tag => "v#{s.version}" }
 
   # Runtime library sources (compiled into the target app).

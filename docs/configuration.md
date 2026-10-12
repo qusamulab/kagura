@@ -102,7 +102,7 @@ want them.
 `-kagura-vtp` is a command-line-only flag.
 
 The ready-made files in
-[`integration/profiles/`](https://github.com/ykus4/kagura/tree/main/integration/profiles)
+[`integration/profiles/`](https://github.com/qusamulab/kagura/tree/main/integration/profiles)
 restate exactly these presets — both they and the compiled presets are
 generated from `lib/Transforms/Profiles.def`, so a profile name means the same
 thing whichever way you select it. (Until recently it did not: the JSON files

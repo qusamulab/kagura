@@ -1,8 +1,8 @@
 site_name: kagura
 site_description: LLVM-based code obfuscation and anti-tamper toolkit
-site_url: https://ykus4.github.io/kagura
-repo_url: https://github.com/ykus4/kagura
-repo_name: ykus4/kagura
+site_url: https://qusamulab.github.io/kagura
+repo_url: https://github.com/qusamulab/kagura
+repo_name: qusamulab/kagura
 edit_uri: edit/main/docs/
 
 theme:

@@ -111,7 +111,7 @@ the profile (later flag wins), and `-kagura-config` is dropped so the
 
 The pass set for each profile is **not** defined in this integration. It is
 read at configure time from the shared policy files in
-[`integration/profiles`](https://github.com/ykus4/kagura/tree/main/integration/profiles), which is what keeps the
+[`integration/profiles`](https://github.com/qusamulab/kagura/tree/main/integration/profiles), which is what keeps the
 Android, Xcode, CMake, Unity, Unreal and Bazel integrations from drifting
 apart:
 
@@ -121,7 +121,7 @@ apart:
 | `BALANCED` | `integration/profiles/balanced.json` | Release builds (default) |
 | `STRONG` | `integration/profiles/strong.json` | Security-critical shipping builds |
 | `CUSTOM` | none — only `KAGURA_ENABLE_*` | Fine-grained control |
-| *path* | your own JSON policy file | See [Configuration](https://ykus4.github.io/kagura/configuration/) |
+| *path* | your own JSON policy file | See [Configuration](https://qusamulab.github.io/kagura/configuration/) |
 
 ```cmake
 set(KAGURA_PROFILE "${CMAKE_SOURCE_DIR}/kagura.json")

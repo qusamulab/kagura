@@ -419,7 +419,7 @@ Android Play Integrity (`runtime/android/play_integrity.c`) is part of the
 
 #### Documentation site
 
-- Full MkDocs site published at <https://ykus4.github.io/kagura>, deployed
+- Full MkDocs site published at <https://qusamulab.github.io/kagura>, deployed
   automatically from `main` via `.github/workflows/docs.yml`.
 - Multi-section sidebar nav: Getting Started · Passes · Integration ·
   Cookbook · Security Model · Configuration · Runtime · Project.

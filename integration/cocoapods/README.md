@@ -19,7 +19,7 @@ In your `Podfile`:
 ```ruby
 target 'MyApp' do
   pod 'KaguraObfuscator',
-      :git    => 'https://github.com/ykus4/kagura.git',
+      :git    => 'https://github.com/qusamulab/kagura.git',
       :tag    => 'v0.2.1'
 end
 ```
@@ -92,7 +92,7 @@ pass-plugin headers and are deliberately not part of the pod.
 
 The build phase defaults to
 `${KAGURA_ROOT}/integration/profiles/balanced.json`, the
-[shared profile](https://github.com/ykus4/kagura/tree/main/integration/profiles) used by every kagura integration.
+[shared profile](https://github.com/qusamulab/kagura/tree/main/integration/profiles) used by every kagura integration.
 Point `KAGURA_PROFILE_JSON` at `fast.json`, `strong.json` or your own policy
 file to change it.
 
@@ -108,4 +108,4 @@ file to change it.
 | Platforms                  | iOS 13+, macOS 11+ |
 
 For richer Xcode-side configuration (per-target xcconfig, per-file selective
-obfuscation, code-signing notes), see [Xcode Integration](https://ykus4.github.io/kagura/integration/xcode/).
+obfuscation, code-signing notes), see [Xcode Integration](https://qusamulab.github.io/kagura/integration/xcode/).

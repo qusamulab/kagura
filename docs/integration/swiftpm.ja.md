@@ -1,6 +1,6 @@
 # Swift Package Manager 統合
 
-詳細は GitHub の [`integration/swiftpm/README.md`](https://github.com/ykus4/kagura/blob/main/integration/swiftpm/README.md) (英語) を参照してください。
+詳細は GitHub の [`integration/swiftpm/README.md`](https://github.com/qusamulab/kagura/blob/main/integration/swiftpm/README.md) (英語) を参照してください。
 
 > ⚠️ 日本語訳は今後追加予定です。最新かつ完全な手順は上記英語版にあります。
 
@@ -10,7 +10,7 @@
 let package = Package(
     name: "MyApp",
     dependencies: [
-        .package(url: "https://github.com/ykus4/kagura.git", from: "0.1.0"),
+        .package(url: "https://github.com/qusamulab/kagura.git", from: "0.1.0"),
     ],
     targets: [
         .target(

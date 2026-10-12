@@ -61,10 +61,10 @@ cd tests/redteam && python3 run_redteam.py \
 ```
 
 各サブディレクトリには独自の README があります — それぞれ
-[`tests/symbolic_exec/README.md`](https://github.com/ykus4/kagura/tree/main/tests/symbolic_exec)、
-[`tests/decompiler_eval/README.md`](https://github.com/ykus4/kagura/tree/main/tests/decompiler_eval)、
-[`tests/frida_resistance/README.md`](https://github.com/ykus4/kagura/tree/main/tests/frida_resistance)、
-[`tests/redteam/README.md`](https://github.com/ykus4/kagura/tree/main/tests/redteam) を参照。
+[`tests/symbolic_exec/README.md`](https://github.com/qusamulab/kagura/tree/main/tests/symbolic_exec)、
+[`tests/decompiler_eval/README.md`](https://github.com/qusamulab/kagura/tree/main/tests/decompiler_eval)、
+[`tests/frida_resistance/README.md`](https://github.com/qusamulab/kagura/tree/main/tests/frida_resistance)、
+[`tests/redteam/README.md`](https://github.com/qusamulab/kagura/tree/main/tests/redteam) を参照。
 
 ## 追加解析ツール
 

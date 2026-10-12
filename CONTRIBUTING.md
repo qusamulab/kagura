@@ -3,7 +3,7 @@
 ## Getting Started
 
 ```bash
-git clone https://github.com/ykus4/kagura.git
+git clone https://github.com/qusamulab/kagura.git
 cd kagura
 bash build.sh
 cd build && ctest --output-on-failure

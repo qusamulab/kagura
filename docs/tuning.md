@@ -5,7 +5,7 @@
 > flag is rejected with *"Unknown command line argument"*. Use the shipped
 > `kagura-opt`, or `opt --load-pass-plugin=<plugin> -kagura-… -passes=…`, both
 > of which work on all supported versions. See
-> [Known issues](https://github.com/ykus4/kagura/blob/main/CHANGELOG.md#known-issues).
+> [Known issues](https://github.com/qusamulab/kagura/blob/main/CHANGELOG.md#known-issues).
 
 
 Every flag below can be set via `-mllvm -kagura-<flag>=<value>` on the clang

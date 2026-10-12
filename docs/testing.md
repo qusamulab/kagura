@@ -64,10 +64,10 @@ cd tests/redteam && python3 run_redteam.py \
 ```
 
 Each subdirectory has its own README — see
-[`tests/symbolic_exec/README.md`](https://github.com/ykus4/kagura/tree/main/tests/symbolic_exec),
-[`tests/decompiler_eval/README.md`](https://github.com/ykus4/kagura/tree/main/tests/decompiler_eval),
-[`tests/frida_resistance/README.md`](https://github.com/ykus4/kagura/tree/main/tests/frida_resistance),
-[`tests/redteam/README.md`](https://github.com/ykus4/kagura/tree/main/tests/redteam).
+[`tests/symbolic_exec/README.md`](https://github.com/qusamulab/kagura/tree/main/tests/symbolic_exec),
+[`tests/decompiler_eval/README.md`](https://github.com/qusamulab/kagura/tree/main/tests/decompiler_eval),
+[`tests/frida_resistance/README.md`](https://github.com/qusamulab/kagura/tree/main/tests/frida_resistance),
+[`tests/redteam/README.md`](https://github.com/qusamulab/kagura/tree/main/tests/redteam).
 
 ## Additional analysis tools
 

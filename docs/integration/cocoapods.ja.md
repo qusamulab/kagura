@@ -1,6 +1,6 @@
 # CocoaPods 統合
 
-詳細は GitHub の [`integration/cocoapods/README.md`](https://github.com/ykus4/kagura/blob/main/integration/cocoapods/README.md) (英語) を参照してください。
+詳細は GitHub の [`integration/cocoapods/README.md`](https://github.com/qusamulab/kagura/blob/main/integration/cocoapods/README.md) (英語) を参照してください。
 
 > ⚠️ 日本語訳は今後追加予定です。最新かつ完全な手順は上記英語版にあります。
 
@@ -11,7 +11,7 @@
 ```ruby
 target 'MyApp' do
   pod 'KaguraObfuscator',
-      :git    => 'https://github.com/ykus4/kagura.git',
+      :git    => 'https://github.com/qusamulab/kagura.git',
       :tag    => 'v0.1.0'
 end
 ```
