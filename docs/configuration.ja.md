@@ -66,7 +66,7 @@ file — it is ignored, so this setting has no effect; did you mean "str_aes"?
 
 `vtp` がこのリストに無いのは、そもそも `passes` のキーではないからです。`-kagura-vtp` はコマンドライン専用のフラグです。
 
-[`integration/profiles/`](https://github.com/ykus4/kagura/tree/main/integration/profiles) の JSON はこの表とまったく同じ内容です。どちらも `lib/Transforms/Profiles.def` から生成されるため、プロファイル名の意味は選び方によらず一致します。（以前は一致していませんでした: JSON 側だけが `sv` `anti-debug` `tamper` を有効にしていました。）
+[`integration/profiles/`](https://github.com/qusamulab/kagura/tree/main/integration/profiles) の JSON はこの表とまったく同じ内容です。どちらも `lib/Transforms/Profiles.def` から生成されるため、プロファイル名の意味は選び方によらず一致します。（以前は一致していませんでした: JSON 側だけが `sv` `anti-debug` `tamper` を有効にしていました。）
 
 プロファイルはデフォルトを設定するだけ。`"passes"` や `"tuning"` で個別キーをオーバーライドできます。
 

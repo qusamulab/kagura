@@ -65,7 +65,7 @@ includes it first, then layers the obfuscation flags on top.
 
 The pass set for each profile is **not** defined in this toolchain file. It is
 read at configure time from the shared policy files in
-[`integration/profiles`](https://github.com/ykus4/kagura/tree/main/integration/profiles):
+[`integration/profiles`](https://github.com/qusamulab/kagura/tree/main/integration/profiles):
 
 | Profile | Definition |
 |:--------|:-----------|
@@ -84,7 +84,7 @@ toolchain emits the expanded flags plus your overrides and **omits**
 `-kagura-config`: the `kagura-config` pass assigns to the `cl::opt` globals
 when it runs and would otherwise clobber the overrides.
 
-See [Configuration](https://ykus4.github.io/kagura/configuration/) for the full
+See [Configuration](https://qusamulab.github.io/kagura/configuration/) for the full
 JSON policy DSL.
 
 ---

@@ -10,7 +10,7 @@
 // │ Package.swift living in integration/swiftpm/ physically cannot reach     │
 // │ ../../runtime. The paths below are therefore written relative to the     │
 // │ repository root, which is also what the documented consumer usage        │
-// │   .package(url: "https://github.com/ykus4/kagura.git", from: "0.2.1")    │
+// │   .package(url: "https://github.com/qusamulab/kagura.git", from: "0.2.1")    │
 // │ requires — SwiftPM only ever looks for Package.swift at the root of a    │
 // │ checked-out repository.                                                  │
 // │                                                                          │
@@ -19,7 +19,7 @@
 // └──────────────────────────────────────────────────────────────────────────┘
 //
 // Usage in a consumer Package.swift:
-//   .package(url: "https://github.com/ykus4/kagura.git", from: "0.2.1")
+//   .package(url: "https://github.com/qusamulab/kagura.git", from: "0.2.1")
 //
 // Then add to your target:
 //   .target(

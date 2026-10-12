@@ -3,18 +3,18 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ykus4/kagura/actions/workflows/ci.yml">
-    <img src="https://github.com/ykus4/kagura/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI">
+  <a href="https://github.com/qusamulab/kagura/actions/workflows/ci.yml">
+    <img src="https://github.com/qusamulab/kagura/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI">
   </a>
-  <a href="https://github.com/ykus4/kagura/actions/workflows/release.yml">
-    <img src="https://github.com/ykus4/kagura/actions/workflows/release.yml/badge.svg" alt="Release">
+  <a href="https://github.com/qusamulab/kagura/actions/workflows/release.yml">
+    <img src="https://github.com/qusamulab/kagura/actions/workflows/release.yml/badge.svg" alt="Release">
   </a>
   <img src="https://img.shields.io/badge/LLVM-17%E2%80%9322-blue?style=flat-square" alt="LLVM 17-22">
   <img src="https://img.shields.io/badge/C%2B%2B-17-orange?style=flat-square" alt="C++17">
   <img src="https://img.shields.io/badge/platforms-iOS%20%7C%20Android%20%7C%20macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20Wasm-green?style=flat-square" alt="Platforms">
   <img src="https://img.shields.io/badge/license-MIT-lightgrey?style=flat-square" alt="MIT License">
-  <a href="https://github.com/ykus4/kagura/discussions">
-    <img src="https://img.shields.io/github/discussions/ykus4/kagura?style=flat-square&label=discussions" alt="Discussions">
+  <a href="https://github.com/qusamulab/kagura/discussions">
+    <img src="https://img.shields.io/github/discussions/qusamulab/kagura?style=flat-square&label=discussions" alt="Discussions">
   </a>
   <a href="https://doi.org/10.5281/zenodo.20361447">
     <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.20361447.svg" alt="DOI">
@@ -47,16 +47,16 @@ Built on the **New Pass Manager** (LLVM 17+). Loaded as a pass plugin via `-fpas
 
 ## Documentation
 
-📚 **Full documentation: [ykus4.github.io/kagura](https://ykus4.github.io/kagura)**
+📚 **Full documentation: [qusamulab.github.io/kagura](https://qusamulab.github.io/kagura)**
 
 | Topic | Link |
 |:------|:-----|
-| Install & first build | [Quick Start](https://ykus4.github.io/kagura/getting-started/quick-start/) |
-| Every pass (flags, effects, overhead) | [Passes](https://ykus4.github.io/kagura/passes/) |
-| JSON policy DSL & strength profiles | [Configuration](https://ykus4.github.io/kagura/configuration/) |
-| Xcode / Gradle / Unity / Unreal / Bazel / CMake / CocoaPods / SPM | [Integration](https://ykus4.github.io/kagura/integration/) |
-| `Protected<T>` for HP / currency / etc. | [Game Protection](https://ykus4.github.io/kagura/game-protection/) |
-| Differential, reproducible, angr / Ghidra / Frida | [Testing & Evaluation](https://ykus4.github.io/kagura/testing/) |
+| Install & first build | [Quick Start](https://qusamulab.github.io/kagura/getting-started/quick-start/) |
+| Every pass (flags, effects, overhead) | [Passes](https://qusamulab.github.io/kagura/passes/) |
+| JSON policy DSL & strength profiles | [Configuration](https://qusamulab.github.io/kagura/configuration/) |
+| Xcode / Gradle / Unity / Unreal / Bazel / CMake / CocoaPods / SPM | [Integration](https://qusamulab.github.io/kagura/integration/) |
+| `Protected<T>` for HP / currency / etc. | [Game Protection](https://qusamulab.github.io/kagura/game-protection/) |
+| Differential, reproducible, angr / Ghidra / Frida | [Testing & Evaluation](https://qusamulab.github.io/kagura/testing/) |
 
 ## Quick taste
 
@@ -65,7 +65,7 @@ Built on the **New Pass Manager** (LLVM 17+). Loaded as a pass plugin via `-fpas
 > flag is rejected with *"Unknown command line argument"*. Use the shipped
 > `kagura-opt`, or `opt --load-pass-plugin=<plugin> -kagura-… -passes=…`, both
 > of which work on all supported versions. See
-> [Known issues](https://github.com/ykus4/kagura/blob/main/CHANGELOG.md#known-issues).
+> [Known issues](https://github.com/qusamulab/kagura/blob/main/CHANGELOG.md#known-issues).
 
 ```bash
 clang -fpass-plugin=KaguraObfuscator.dylib \
@@ -96,9 +96,9 @@ If you use Kagura in your research or build on it, please cite the [paper](https
 
 ## Community
 
-- 💬 **[Discussions](https://github.com/ykus4/kagura/discussions)** — questions, ideas, share your use case
-- 🐞 **[Issues](https://github.com/ykus4/kagura/issues)** — bugs and feature requests (templates provided)
-- 📚 **[Documentation](https://ykus4.github.io/kagura)** — passes, configuration, integration, testing
+- 💬 **[Discussions](https://github.com/qusamulab/kagura/discussions)** — questions, ideas, share your use case
+- 🐞 **[Issues](https://github.com/qusamulab/kagura/issues)** — bugs and feature requests (templates provided)
+- 📚 **[Documentation](https://qusamulab.github.io/kagura)** — passes, configuration, integration, testing
 
 ## License
 

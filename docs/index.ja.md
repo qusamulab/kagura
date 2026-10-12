@@ -5,7 +5,7 @@
 > `-kagura-*` フラグが *"Unknown command line argument"* で拒否されます。同梱の
 > `kagura-opt`、または `opt --load-pass-plugin=<plugin> -kagura-… -passes=…`
 > を使ってください（どちらも全対応バージョンで動作します）。
-> [既知の問題](https://github.com/ykus4/kagura/blob/main/CHANGELOG.md#known-issues)。
+> [既知の問題](https://github.com/qusamulab/kagura/blob/main/CHANGELOG.md#known-issues)。
 
 
 > **モバイル・デスクトップ・WebAssembly 向けの LLVM ベース難読化・耐タンパーツールキット。**
@@ -27,9 +27,9 @@ LLVM 17+ の **New Pass Manager** 上に構築。`-fpass-plugin` でパスプラ
 
 !!! note "コミュニティ"
     質問・アイデア・ユースケース共有は
-    [**GitHub Discussions**](https://github.com/ykus4/kagura/discussions) で。
+    [**GitHub Discussions**](https://github.com/qusamulab/kagura/discussions) で。
     バグ報告と機能要望は
-    [**Issues**](https://github.com/ykus4/kagura/issues) — テンプレートあり。
+    [**Issues**](https://github.com/qusamulab/kagura/issues) — テンプレートあり。
 
 ---
 
@@ -128,4 +128,4 @@ clang -fpass-plugin=KaguraObfuscator.dylib \
 
 ## ライセンス
 
-MIT — [LICENSE](https://github.com/ykus4/kagura/blob/main/LICENSE) 参照。
+MIT — [LICENSE](https://github.com/qusamulab/kagura/blob/main/LICENSE) 参照。

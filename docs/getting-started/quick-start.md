@@ -5,7 +5,7 @@
 > flag is rejected with *"Unknown command line argument"*. Use the shipped
 > `kagura-opt`, or `opt --load-pass-plugin=<plugin> -kagura-… -passes=…`, both
 > of which work on all supported versions. See
-> [Known issues](https://github.com/ykus4/kagura/blob/main/CHANGELOG.md#known-issues).
+> [Known issues](https://github.com/qusamulab/kagura/blob/main/CHANGELOG.md#known-issues).
 
 
 Get a Kagura-protected binary in under five minutes.
@@ -14,7 +14,7 @@ Get a Kagura-protected binary in under five minutes.
 
 === "Pre-built release"
 
-    Pre-built plugin binaries are published per release on the [GitHub Releases page](https://github.com/ykus4/kagura/releases).
+    Pre-built plugin binaries are published per release on the [GitHub Releases page](https://github.com/qusamulab/kagura/releases).
 
     ```
     kagura-<version>-macos-arm64-llvm21.tar.gz

@@ -5,7 +5,7 @@
 > `-kagura-*` フラグが *"Unknown command line argument"* で拒否されます。同梱の
 > `kagura-opt`、または `opt --load-pass-plugin=<plugin> -kagura-… -passes=…`
 > を使ってください（どちらも全対応バージョンで動作します）。
-> [既知の問題](https://github.com/ykus4/kagura/blob/main/CHANGELOG.md#known-issues)。
+> [既知の問題](https://github.com/qusamulab/kagura/blob/main/CHANGELOG.md#known-issues)。
 
 
 5分以内に Kagura で保護されたバイナリを作ります。
@@ -14,7 +14,7 @@
 
 === "プリビルトリリース"
 
-    プラグインのバイナリはリリースごとに [GitHub Releases](https://github.com/ykus4/kagura/releases) で配布しています。
+    プラグインのバイナリはリリースごとに [GitHub Releases](https://github.com/qusamulab/kagura/releases) で配布しています。
 
     ```
     kagura-<version>-macos-arm64-llvm21.tar.gz

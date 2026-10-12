@@ -5,7 +5,7 @@
 > `-kagura-*` フラグが *"Unknown command line argument"* で拒否されます。同梱の
 > `kagura-opt`、または `opt --load-pass-plugin=<plugin> -kagura-… -passes=…`
 > を使ってください（どちらも全対応バージョンで動作します）。
-> [既知の問題](https://github.com/ykus4/kagura/blob/main/CHANGELOG.md#known-issues)。
+> [既知の問題](https://github.com/qusamulab/kagura/blob/main/CHANGELOG.md#known-issues)。
 
 
 以下のフラグはすべて clang のコマンドラインで `-mllvm -kagura-<flag>=<value>` として指定できます。[JSON ポリシーファイル](configuration.md) に対応するキーがあるのはその一部だけです — [ポリシーファイルから設定できるもの](#what-is-settable-from-a-policy-file) を参照してください。

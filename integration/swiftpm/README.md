@@ -42,7 +42,7 @@ Add the package to your own `Package.swift`:
 let package = Package(
     name: "MyApp",
     dependencies: [
-        .package(url: "https://github.com/ykus4/kagura.git", from: "0.2.1"),
+        .package(url: "https://github.com/qusamulab/kagura.git", from: "0.2.1"),
     ],
     targets: [
         .target(
@@ -67,7 +67,7 @@ detection, AES, VM interpreter, anti-cheat helpers). The compiler plugin
 first-class support for clang pass plugins of this type.
 
 To enable obfuscation, load the plugin through Xcode build settings and point
-it at one of the [shared profiles](https://github.com/ykus4/kagura/tree/main/integration/profiles):
+it at one of the [shared profiles](https://github.com/qusamulab/kagura/tree/main/integration/profiles):
 
 ```
 OTHER_CFLAGS      = $(inherited) -fpass-plugin=$(KAGURA_PLUGIN_PATH) \
@@ -76,7 +76,7 @@ OTHER_SWIFT_FLAGS = $(inherited) -Xcc -fpass-plugin=$(KAGURA_PLUGIN_PATH) \
                     -Xcc -mllvm -Xcc -kagura-config=$(KAGURA_DIR)/integration/profiles/balanced.json
 ```
 
-See [Xcode Integration](https://ykus4.github.io/kagura/integration/xcode/) for
+See [Xcode Integration](https://qusamulab.github.io/kagura/integration/xcode/) for
 the full xcconfig and build-phase setup.
 
 ---

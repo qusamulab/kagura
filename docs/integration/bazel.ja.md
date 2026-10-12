@@ -1,6 +1,6 @@
 # Bazel 統合
 
-詳細は GitHub の [`integration/bazel/README.md`](https://github.com/ykus4/kagura/blob/main/integration/bazel/README.md) (英語) を参照してください。
+詳細は GitHub の [`integration/bazel/README.md`](https://github.com/qusamulab/kagura/blob/main/integration/bazel/README.md) (英語) を参照してください。
 
 > ⚠️ 日本語訳は今後追加予定です。最新かつ完全な手順は上記英語版にあります。
 

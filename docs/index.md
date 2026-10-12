@@ -5,7 +5,7 @@
 > flag is rejected with *"Unknown command line argument"*. Use the shipped
 > `kagura-opt`, or `opt --load-pass-plugin=<plugin> -kagura-… -passes=…`, both
 > of which work on all supported versions. See
-> [Known issues](https://github.com/ykus4/kagura/blob/main/CHANGELOG.md#known-issues).
+> [Known issues](https://github.com/qusamulab/kagura/blob/main/CHANGELOG.md#known-issues).
 
 
 > **LLVM-based code obfuscation and anti-tamper toolkit for mobile, desktop, and WebAssembly targets.**
@@ -32,9 +32,9 @@ Built on the **New Pass Manager** (LLVM 17+). Loaded as a pass plugin via `-fpas
 
 !!! note "Community"
     Questions, ideas, and use-case sharing live in
-    [**GitHub Discussions**](https://github.com/ykus4/kagura/discussions).
+    [**GitHub Discussions**](https://github.com/qusamulab/kagura/discussions).
     Bug reports and feature requests go in
-    [**Issues**](https://github.com/ykus4/kagura/issues) — templates provided.
+    [**Issues**](https://github.com/qusamulab/kagura/issues) — templates provided.
 
 ---
 
@@ -133,4 +133,4 @@ If you use Kagura in your research or build on it, please cite the [paper](https
 
 ## License
 
-MIT — see [LICENSE](https://github.com/ykus4/kagura/blob/main/LICENSE).
+MIT — see [LICENSE](https://github.com/qusamulab/kagura/blob/main/LICENSE).

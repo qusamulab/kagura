@@ -34,5 +34,5 @@ registry row, so there is nothing to hand-register.
 - [ ] `tests/pass-inputs/` smoke input added
 - [ ] `tests/lit/<your-pass>.ll` FileCheck test added
 - [ ] `docs/passes/<category>.md` entry added
-- [ ] Updates the [pass-order](https://ykus4.github.io/kagura/pass-order/) doc if order-sensitive
+- [ ] Updates the [pass-order](https://qusamulab.github.io/kagura/pass-order/) doc if order-sensitive
 - [ ] If it belongs in a strength profile: rows in `lib/Transforms/Profiles.def` + `scripts/ci/gen-profiles.py`
