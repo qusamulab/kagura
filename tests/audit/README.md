@@ -36,6 +36,33 @@ no-op. A successful matrix invocation does not assert that a pass transformed
 every module. Positive FileCheck assertions and native differential execution
 are separate checks.
 
+Results: **84/84 CTest tests**, **8/8 differential subjects**, and
+**3,456/3,456 verifier/serialization checks** passed locally. The tested combined
+implementation is preserved at
+[`e8182af`](https://github.com/qusamulab/kagura/commit/e8182af) (the final commit
+only accommodates LLVM 17's optional `inbounds` constant-GEP canonicalization).
+The regression baseline is `8228f9b`.
+
+The fixes are separated by pass or feature for review. Cross-version/platform
+CI results are recorded on each PR:
+
+| Feature | Pull request |
+| --- | --- |
+| String-split PHI insertion (#57) | [#60](https://github.com/qusamulab/kagura/pull/60) |
+| String protection, reference lifetime and concurrent initialization (#58) | [#59](https://github.com/qusamulab/kagura/pull/59) |
+| Flattening dominance and shared EH recognition | [#61](https://github.com/qusamulab/kagura/pull/61) |
+| Typed local-slot encryption (MVO/PE) | [#62](https://github.com/qusamulab/kagura/pull/62) |
+| Complete global access validation | [#63](https://github.com/qusamulab/kagura/pull/63) |
+| Encrypted lookup integer types | [#64](https://github.com/qusamulab/kagura/pull/64) |
+| Block splitting and musttail | [#65](https://github.com/qusamulab/kagura/pull/65) |
+| Function splitting and frame-sensitive instructions | [#66](https://github.com/qusamulab/kagura/pull/66) |
+| VM input semantics | [#67](https://github.com/qusamulab/kagura/pull/67) |
+| MSVC descriptor layouts | [#68](https://github.com/qusamulab/kagura/pull/68) |
+| Debug subprogram identity | [#69](https://github.com/qusamulab/kagura/pull/69) |
+| JNI hook mutation | [#70](https://github.com/qusamulab/kagura/pull/70) |
+| Indirect calls and early constructors | [#71](https://github.com/qusamulab/kagura/pull/71) |
+| Pointer authentication accesses and initialization | [#72](https://github.com/qusamulab/kagura/pull/72) |
+
 ## Coverage and findings
 
 | Pass | Result of review and regression checks |

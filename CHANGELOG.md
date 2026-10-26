@@ -5,11 +5,35 @@ All notable changes to Kagura are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.3.0] — 2026-08-30
+## [0.3.0] — 2026-10-26
 
 A repair release. Several documented flags did nothing at all; a few produced
 binaries that could not link or crashed the compiler. In every case the reason
 it went unnoticed was a hole in the test suite, so the suite was rebuilt too.
+
+### October IR safety follow-up
+
+- Fix string-split initialization for PHI operands by inserting it in incoming
+  predecessor blocks (#57, #60).
+- Add opt-in `-kagura-string-aggressive` / `"string": {"aggressive": true}`
+  for short/format strings and static aggregate references, with startup
+  decryption and documented exclusions (#58, #59). Conservative collection
+  remains the default. XOR runs before AES when both are enabled.
+- Preserve string GEP offsets, escaped pointer lifetime and pointer identity;
+  validate complete use graphs and synchronize concurrent lazy initialization.
+  Default AES plaintext now persists for the literal lifetime instead of using
+  per-use stack buffers (#59).
+- Repair flattening dominance/EH handling, typed local/global encryption,
+  encrypted lookup integer widths, musttail block boundaries, frame-sensitive
+  function splitting, VM eligibility, MSVC descriptors and debug scope identity
+  (#61–#69).
+- Validate JNI hooks before mutation (#70), preserve indirect call prototypes
+  and support early constructors (#71), and correct typed pointer authentication
+  access rewriting and guarded hardware initialization (#72).
+- Audit all 36 registered passes. The combined LLVM 21/macOS run passes 84
+  CTest tests, eight differential subjects and 3,456 verifier/serialization
+  checks. Add a reusable cross-pass runner and a per-pass report with coverage
+  limits in `tests/audit/README.md` (#73).
 
 ### ⚠️ Read this before upgrading
 
@@ -321,6 +345,10 @@ step by a comment asking the reader to remember the others.
 
 ### Known issues
 
+- **Dynamic JNI registration remains incomplete.** Hook/IR mutation is repaired,
+  but runtime helpers, method signatures and native function-address registration
+  still need implementation. The IR audit does not establish working JNI
+  registration or platform/device loader behavior.
 - **`clang -fpass-plugin=… -mllvm -kagura-…` does not work below LLVM 22.**
   Pre-existing, and it is the invocation the README leads with. clang parses
   `-mllvm` options before `-fpass-plugin` has loaded the plugin, so the

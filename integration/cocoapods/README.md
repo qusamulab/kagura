@@ -20,7 +20,7 @@ In your `Podfile`:
 target 'MyApp' do
   pod 'KaguraObfuscator',
       :git    => 'https://github.com/qusamulab/kagura.git',
-      :tag    => 'v0.2.1'
+      :tag    => 'v0.3.0'
 end
 ```
 
