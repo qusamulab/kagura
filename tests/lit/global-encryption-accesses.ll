@@ -32,7 +32,7 @@ define float @mixed_access() {
  ret float %b
 }
 ; CHECK-LABEL: define i32 @supported(
-; CHECK: %a = load i32, ptr getelementptr ({{.*}}), align 4{{$}}
+; CHECK: %a = load i32, ptr getelementptr{{( inbounds)?}} ({{.*}}), align 4{{$}}
 ; CHECK-NEXT: %a.dec = xor i32 %a,
 ; CHECK: %b = load i32, ptr %p, align 4
 ; CHECK-NEXT: %b.dec = xor i32 %b,
