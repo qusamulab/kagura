@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = "KaguraObfuscator"
-  s.version      = "0.2.1"
+  s.version      = "0.3.0"
   s.summary      = "LLVM-based binary obfuscation and runtime protection for iOS/macOS."
   s.description  = <<-DESC
     KaguraObfuscator is a production-grade LLVM pass plugin that provides:
