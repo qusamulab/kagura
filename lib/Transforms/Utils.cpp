@@ -1,5 +1,6 @@
 #include "kagura/Options.h"
 #include "kagura/Utils.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringRef.h"
 
 #if __has_include("llvm/TargetParser/Triple.h")
@@ -556,6 +557,45 @@ void replaceAllUsesExcept(Value *Old, Instruction *New) {
 
 // ---- String global collection ----
 
+bool canProtectStringAtStartup(const GlobalVariable &GV) {
+  if (!GV.hasLocalLinkage() || GV.isThreadLocal() || GV.hasSection() ||
+      GV.isExternallyInitialized() || GV.getAddressSpace() != 0 ||
+      GV.getName().starts_with("llvm.") || isKaguraSymbol(GV.getName()) ||
+      GV.use_empty())
+    return false;
+
+  // A constant expression/aggregate has no insertion point of its own.
+  // Startup decryption preserves the pointers inside it, including offsets.
+  // Do not rewrite strings consumed by the compiler or platform loader.
+  SmallVector<const User *, 16> Worklist(GV.users());
+  SmallPtrSet<const User *, 32> Seen;
+  while (!Worklist.empty()) {
+    const User *U = Worklist.pop_back_val();
+    if (!Seen.insert(U).second)
+      continue;
+    if (auto *I = dyn_cast<Instruction>(U)) {
+      if (auto *CB = dyn_cast<CallBase>(I))
+        if (const Function *F = CB->getCalledFunction()) {
+          StringRef N = F->getName();
+          if (N.starts_with("llvm.var.annotation") ||
+              N.starts_with("llvm.ptr.annotation") ||
+              N.starts_with("llvm.annotation"))
+            return false;
+        }
+      continue;
+    }
+    if (auto *G = dyn_cast<GlobalVariable>(U)) {
+      if (G->getName().starts_with("llvm.") || isKaguraSymbol(G->getName()) ||
+          G->hasSection())
+        return false;
+    } else if (!isa<ConstantExpr, ConstantAggregate>(U)) {
+      return false;
+    }
+    Worklist.append(U->user_begin(), U->user_end());
+  }
+  return true;
+}
+
 std::vector<GlobalVariable *> collectStringGlobals(Module &M,
                                                     bool StrictLinkage) {
   std::vector<GlobalVariable *> Result;
@@ -570,6 +610,11 @@ std::vector<GlobalVariable *> collectStringGlobals(Module &M,
     if (!CDA || !CDA->isString())
       continue;
     StringRef S = CDA->getAsString();
+    if (opt::StringAggressive) {
+      if (!S.empty() && canProtectStringAtStartup(GV))
+        Result.push_back(&GV);
+      continue;
+    }
     if (S.size() < 4)
       continue;
     if (S.contains('%') || S.trim().empty())

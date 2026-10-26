@@ -237,10 +237,16 @@ bool isWasmTarget(const llvm::Module &M);
 
 /// Collect all ConstantDataArray globals that look like strings, are used in
 /// at least one function, and satisfy basic heuristics (length >= 4, no format
-/// specifiers, etc.).  If StrictLinkage is true, only private/internal globals
-/// are collected.
+/// specifiers, etc.). If StrictLinkage is true, only private/internal globals
+/// are collected. With StringAggressive, use startup-safe private/internal
+/// strings instead, including short/format strings and aggregate-only uses.
 std::vector<llvm::GlobalVariable *>
 collectStringGlobals(llvm::Module &M, bool StrictLinkage = false);
+
+/// Whether startup decryption can safely replace this application-owned
+/// string. Allows PHIs and nested constant arrays/structs, but excludes
+/// externally visible storage, TLS, special sections and compiler metadata.
+bool canProtectStringAtStartup(const llvm::GlobalVariable &GV);
 
 // ---- Global-variable use analysis ----
 

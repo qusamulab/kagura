@@ -62,7 +62,7 @@ Precedence, highest first:
 1. An explicit `-kagura-*` command-line flag. `-kagura-config=p.json
    -kagura-str=false` disables string encryption even if `p.json` asks for it.
 2. A `flavors` block matching `$KAGURA_FLAVOR`.
-3. The `passes` / `tuning` objects.
+3. The `passes` / `tuning` / `string` objects.
 4. The `profile` preset.
 5. The built-in default (every pass off).
 
@@ -111,6 +111,44 @@ enabled `sv`, `anti-debug` and `tamper` that the compiled preset skipped.)
 A profile sets defaults; anything in `"passes"` or `"tuning"` overrides the
 profile's choices for that specific key.
 
+## Broader string protection
+
+The default string passes keep their conservative collection and lazy-use
+behavior. To also encrypt short strings (including one-character literals),
+printf/logging formats containing `%`, and literals referenced by global
+arrays or nested structs, opt into startup decryption:
+
+```json
+{
+  "profile": "CUSTOM",
+  "passes": { "str_aes": true, "wstr": true },
+  "string": { "aggressive": true }
+}
+```
+
+The CLI equivalent is `-kagura-string-aggressive`, alongside the string pass
+flags. This changes the policy of `str`, `str_aes` and `wstr`; it does not enable
+them by itself. An explicit `-kagura-string-aggressive=false` overrides JSON,
+and flavors may override the `string` object. Unknown keys in that object
+also participate in `-kagura-config-strict` validation.
+
+Eligible application strings use writable backing storage with a permanent
+address. Initializers keep their pointers and GEP offsets; a priority-0 module
+constructor decrypts the data before normal application constructors and
+`main`. AES additionally stores a separate constant ciphertext blob and
+requires `kagura_runtime`. This increases startup work and keeps plaintext in
+memory for the lifetime of the module. Code in preinit hooks or other
+priority-0 constructors must not rely on this initialization order.
+
+Coverage remains deliberately limited to private/internal storage outside
+special sections. TLS, externally visible string storage, LLVM annotations,
+loader metadata, aliases and Kagura's own keys/helpers are excluded.
+
+`str` runs before `str_aes` in the automatic pipeline. Enabling both does not
+upgrade XOR-encrypted strings to AES: the earlier pass consumes those targets.
+For AES protection of eligible narrow strings, set `"str": false` and
+`"str_aes": true`, including when overriding a strength profile.
+
 ## Worked example — bank / FinTech release
 
 Strong profile with per-build AES key rotation so a key extracted from one
@@ -151,6 +189,7 @@ See [Anti-Analysis Passes](passes/anti-analysis.md).
 | `profile` | string | `FAST` / `BALANCED` / `STRONG` / `CUSTOM`. `CUSTOM` means "I am listing the passes myself" and applies no preset. |
 | `passes` | object | Per-pass enables. Keys are `-kagura-` flag names without the prefix. `"dwarf"` additionally takes `"keep"` / `"strip"` / `"obfuscate"`. |
 | `tuning` | object | The five numeric parameters: `seed`, `bcf_prob`, `bcf_iter`, `sub_iter`, `dci_prob`. |
+| `string` | object | `"aggressive": true` opts into broader string coverage with startup decryption; default `false`. |
 | `allowlist` | array of string | Same as `-kagura-allow`: when non-empty, only matching symbols are obfuscated. |
 | `denylist` | array of string | Same as `-kagura-deny`: matching symbols are left alone. |
 | `protect` | array of string | Same as `-kagura-protect`: force-protect matching symbols. Checked first, so it wins over `denylist`, `allowlist`, `kagura_hotpath` and per-function `kagura_no*` annotations alike. |
@@ -182,7 +221,7 @@ KAGURA_FLAVOR=production clang -fpass-plugin=KaguraObfuscator.dylib \
       -mllvm -kagura-config=kagura.json -O2 -c app.c -o app.o
 ```
 
-A flavor block accepts `profile`, `passes`, `tuning`, `allowlist`, `denylist`
+A flavor block accepts `profile`, `passes`, `tuning`, `string`, `allowlist`, `denylist`
 and `protect` — the same keys as the root, minus `flavors` and `audit_out`.
 
 ## See also

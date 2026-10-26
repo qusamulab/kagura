@@ -26,6 +26,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "kagura/Options.h"
 #include "kagura/Passes/Data.h"
 #include "kagura/Utils.h"
 
@@ -161,6 +162,8 @@ static bool looksLikeApiKey(StringRef Raw) {
 static std::vector<GlobalVariable *> collectEncryptionTargets(Module &M) {
   // Standard collection (strips format strings etc.)
   auto Result = kagura::collectStringGlobals(M);
+  if (opt::StringAggressive)
+    return Result;
 
   // 4.2.12: Additionally scan for API key / URL-like strings that were
   // rejected by the standard heuristics (e.g. contain '%' from URL encoding).
@@ -199,7 +202,7 @@ PreservedAnalyses StringEncryptionPass::run(Module &M,
   auto *Int8Ty = Type::getInt8Ty(Ctx);
 
   for (auto *GV : Strings) {
-    if (!hasOnlyGuardableUses(GV))
+    if (!opt::StringAggressive && !hasOnlyGuardableUses(GV))
       continue;
 
     auto *CDA = dyn_cast<ConstantDataArray>(GV->getInitializer());
@@ -233,6 +236,18 @@ PreservedAnalyses StringEncryptionPass::run(Module &M,
                                      GlobalValue::PrivateLinkage, EncConst,
                                      "kagura_enc_" + Suffix);
     EncGV->setAlignment(GV->getAlign());
+
+    // Preserve static aggregate pointers and PHI operands by redirecting all
+    // uses to stable writable storage, decrypted before application ctors.
+    if (opt::StringAggressive) {
+      auto *Stub = buildDecryptStub(M, EncGV, ArrayRef<uint8_t>(Key, KeyLen),
+                                    Suffix);
+      appendKaguraCtor(M, Stub, CtorPriority::RuntimeString);
+      GV->replaceAllUsesWith(EncGV);
+      GV->eraseFromParent();
+      Changed = true;
+      continue;
+    }
 
     // 4.2.4: Per-string decrypted flag (i8, init=0).
     auto *FlagGV = new GlobalVariable(M, Int8Ty, /*isConstant=*/false,

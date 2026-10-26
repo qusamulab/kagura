@@ -382,6 +382,8 @@ PreservedAnalyses WideStringEncryptionPass::run(Module &M,
   auto *Int8Ty = Type::getInt8Ty(M.getContext());
 
   for (auto *GV : WideTargets) {
+    if (opt::StringAggressive && !canProtectStringAtStartup(*GV))
+      continue;
     auto *CDA = cast<ConstantDataArray>(GV->getInitializer());
     unsigned N       = CDA->getNumElements();
     unsigned ElemBits = CDA->getType()->getElementType()->getIntegerBitWidth();
@@ -413,13 +415,21 @@ PreservedAnalyses WideStringEncryptionPass::run(Module &M,
     SmallVector<User *, 8> Users(GV->users());
 
     // 4.2.4: per-string flag
-    auto *FlagGV = new GlobalVariable(M, Int8Ty, /*isConstant=*/false,
-                                      GlobalValue::PrivateLinkage,
-                                      ConstantInt::get(Int8Ty, 0),
-                                      "kagura_wflag_" + Suffix);
-    FlagGV->setAlignment(Align(1));
+    GlobalVariable *FlagGV = nullptr;
+    if (!opt::StringAggressive) {
+      FlagGV = new GlobalVariable(M, Int8Ty, /*isConstant=*/false,
+                                  GlobalValue::PrivateLinkage,
+                                  ConstantInt::get(Int8Ty, 0),
+                                  "kagura_wflag_" + Suffix);
+      FlagGV->setAlignment(Align(1));
+    }
 
     Function *Stub = buildWideDecryptStub(M, GV, N, ElemBits, Key, Suffix);
+    if (opt::StringAggressive) {
+      appendKaguraCtor(M, Stub, CtorPriority::RuntimeString);
+      Changed = true;
+      continue;
+    }
 
     // Inject lazy guard before every instruction that uses this global.
     for (auto *U : Users) {

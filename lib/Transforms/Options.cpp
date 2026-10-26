@@ -56,6 +56,12 @@ cl::opt<bool> VTP("kagura-vtp",
                   cl::desc("[Kagura] RTTI / vtable protection (C++ ABI)"),
                   cl::init(false));
 
+cl::opt<bool> StringAggressive(
+    "kagura-string-aggressive",
+    cl::desc("[Kagura] Protect short, format and global-initializer strings "
+             "using startup decryption"),
+    cl::init(false));
+
 // ---- Build-system / DX flags ----
 
 cl::opt<bool> AutoSelect(

@@ -353,6 +353,14 @@ static bool applyTuningObject(const json::Object &TuningJson) {
   return Tuning.reportUnclaimed(validTuningKeys());
 }
 
+static bool applyStringObject(const json::Object &StringJson) {
+  PolicyObject StringPolicy(StringJson, "string");
+  if (auto V = StringPolicy.getBoolean("aggressive"))
+    if (!setByUser(opt::StringAggressive))
+      opt::StringAggressive = *V;
+  return StringPolicy.reportUnclaimed({"aggressive"});
+}
+
 // ---- Entry point ------------------------------------------------------------
 
 void loadConfigFileIfSpecified() {
@@ -425,6 +433,9 @@ void loadConfigFileIfSpecified() {
   if (auto *TuningObj = Root->getObject("tuning"))
     UnknownKeys |= applyTuningObject(*TuningObj);
 
+  if (auto *StringObj = Root->getObject("string"))
+    UnknownKeys |= applyStringObject(*StringObj);
+
   // 4.6.3/4.6.4: Load allowlist / denylist / protect from JSON.
   //
   // These MERGE with an explicit command-line list instead of replacing it.
@@ -466,6 +477,8 @@ void loadConfigFileIfSpecified() {
       UnknownKeys |= applyPassesObject(*PassesObj);
     if (auto *TuningObj = FlavorRoot->getObject("tuning"))
       UnknownKeys |= applyTuningObject(*TuningObj);
+    if (auto *StringObj = FlavorRoot->getObject("string"))
+      UnknownKeys |= applyStringObject(*StringObj);
     concatArray(FlavorRoot, "allowlist", opt::AllowList);
     concatArray(FlavorRoot, "denylist",  opt::DenyList);
     concatArray(FlavorRoot, "protect",   opt::ProtectList);

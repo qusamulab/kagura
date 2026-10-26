@@ -17,6 +17,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Support/AES128.h"
+#include "kagura/Options.h"
 #include "kagura/Passes/Data.h"
 #include "kagura/Utils.h"
 
@@ -171,7 +172,7 @@ PreservedAnalyses StringEncryptionAESPass::run(Module &M,
   auto *Int8Ty = Type::getInt8Ty(Ctx);
 
   for (auto *GV : Strings) {
-    if (!hasOnlyGuardableUses(GV))
+    if (!opt::StringAggressive && !hasOnlyGuardableUses(GV))
       continue;
 
     auto *CDA = cast<ConstantDataArray>(GV->getInitializer());
@@ -219,6 +220,25 @@ PreservedAnalyses StringEncryptionAESPass::run(Module &M,
       Function *Stub = buildAESDecryptStub(M, EncGV, KeyGV, NonceGV,
                                            Len, BlobChecksum, Suffix,
                                            RuntimeDecrypt, BlobIntegrity);
+
+      if (opt::StringAggressive) {
+        // A permanent buffer preserves pointers stored in static tables or
+        // returned by functions. Only the ciphertext lives in the binary.
+        EncGV->setConstant(true);
+        auto *OutGV = new GlobalVariable(
+            M, OutArrTy, false, GlobalValue::PrivateLinkage,
+            ConstantAggregateZero::get(OutArrTy), "kagura_aesbuf_" + Suffix);
+        OutGV->setAlignment(GV->getAlign());
+        auto *Ctor = createCtorFunction(M, "kagura_aesinit_" + Suffix);
+        IRBuilder<> B(&Ctor->getEntryBlock());
+        B.CreateCall(Stub, {OutGV});
+        B.CreateRetVoid();
+        appendKaguraCtor(M, Ctor, CtorPriority::RuntimeString);
+        GV->replaceAllUsesWith(OutGV);
+        GV->eraseFromParent();
+        Changed = true;
+        continue;
+      }
 
       // Replace uses of the original global.
       // Each use gets a per-call stack buffer.  This avoids the static shared

@@ -117,6 +117,26 @@ kagura_add_integration_test(str_encrypt_correctness
   "hello world\nkagura obfuscator\n"
   "@kagura_enc_")       # the ciphertext global that replaces the literal
 
+foreach(_string_mode xor aes combined)
+  if(_string_mode STREQUAL "xor")
+    set(_string_passes "kagura-str,kagura-wstr")
+    set(_string_marker "@kagura_enc_")
+  elseif(_string_mode STREQUAL "aes")
+    set(_string_passes "kagura-str-aes,kagura-wstr")
+    set(_string_marker "@kagura_aesbuf_")
+  else()
+    set(_string_passes "kagura-str,kagura-str-aes,kagura-wstr,kagura-string-split,kagura-genc,function(kagura-fla,kagura-bcf,kagura-sub,kagura-co,kagura-cse-break,kagura-ibr,kagura-bbr,kagura-bbs,kagura-dci)")
+    set(_string_marker "@kagura_enc_")
+  endif()
+  kagura_add_integration_test(string_coverage_${_string_mode}
+    "${_string_passes}"
+    string_coverage.c
+    "Alpha\nname[0]=Alpha\nname[1]=Bravo\nname[2]=Charlie\nsaved=Bravo short=ab/xy value=1\nwide=Wide\n"
+    "${_string_marker}"
+    $<TARGET_FILE:kagura_runtime>
+    "-kagura-string-aggressive")
+endforeach()
+
 kagura_add_integration_test(co_correctness
   "function(kagura-co)"
   arithmetic_smoke.c

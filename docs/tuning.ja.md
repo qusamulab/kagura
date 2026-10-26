@@ -32,6 +32,7 @@
 | `-kagura-build-id=<id>` | — | — | ビルド識別子を PRNG シードに混入、per-build 鍵ローテーション用 |
 | `-kagura-vtp` | — | `false` | RTTI / vtable 保護 (C++ ABI) |
 | `-kagura-autoselect` | — | `false` | 関数ごとにスコアを付けて適用パスを自動選択 |
+| `-kagura-string-aggressive` | `string.aggressive` | `false` | 起動時復号により文字列保護の対象を拡張。詳細は [設定](configuration.ja.md) を参照 |
 
 `-kagura-o0-protect` が解禁するのは、`-O0` でもコストが有界に収まるパスです: `str`, `str-aes`, `wstr`, `anti-debug`、および `-kagura-dwarf` が `keep` 以外のときの DWARF 制御。個々のパスは別途有効化が必要で、このフラグは解禁するだけです。`fla`, `bcf`, `vm` などの構造変換パスは `-O0` では一切実行されません。
 
@@ -62,6 +63,8 @@
 `"tuning"` オブジェクトが読むのは、上のコアチューニングの 5 行だけです。`"passes"` オブジェクトはパスごとの有効化キー（`-kagura-<pass>` フラグ 1 つにつき 1 キー）と `"dwarf"` を読みます。`protect` / `denylist` / `allowlist` / `audit_out` は `"tuning"` ではなくルートのキーです。
 
 このページの残り — `-kagura-lto-safe`, `-kagura-o0-protect`, `-kagura-build-id`, `-kagura-vtp`, `-kagura-autoselect`, `-kagura-metrics`, `-kagura-symmap`, `-kagura-symmap-out`, `-kagura-audit`, `-kagura-config` — にはポリシーファイル上の表現が存在せず、コマンドラインで渡す必要があります。これらは保護ポリシーではなくビルド呼び出し側の決定事項（どの成果物をどこに書くか、そもそもパイプラインを走らせるか）だからです。`"passes"` や `"tuning"` にこれらを書くと、以前は黙って無視されていましたが、現在は代わりに使うフラグ名を示す警告が出ます。
+
+`-kagura-string-aggressive`（既定 `false`）は JSON の `"string": {"aggressive": true}` に対応します。起動時復号により文字列保護の対象を広げます。[設定](configuration.ja.md) を参照してください。
 
 ## 再現性
 

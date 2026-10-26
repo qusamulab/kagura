@@ -17,6 +17,13 @@ Source: `lib/Transforms/Data/`
 
 See [Before / After Examples](before-after.md) for `kagura-str` and `kagura-sub` walkthroughs.
 
+`-kagura-string-aggressive` (JSON `"string": {"aggressive": true}`) extends
+`str`, `str_aes` and `wstr` to short/format strings and global initializer uses
+with startup decryption and permanent backing storage. The default remains
+conservative. `str` precedes `str_aes`; disable `str` when AES should own the
+narrow strings. See [Broader string protection](../configuration.md#broader-string-protection)
+for coverage, initialization ordering and memory-lifetime tradeoffs.
+
 For protecting game-runtime values (HP, currency, etc.) at the C++ level, see
 [Game Protection](../game-protection.md) — `Protected<T>` complements `kagura-mvo`
 by adding a runtime shadow-copy integrity check.

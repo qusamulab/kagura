@@ -42,7 +42,7 @@ file — it is ignored, so this setting has no effect; did you mean "str_aes"?
 
 1. コマンドラインで明示指定した `-kagura-*` フラグ。`-kagura-config=p.json -kagura-str=false` は、`p.json` が要求していても文字列暗号化を無効にします。
 2. `$KAGURA_FLAVOR` に一致する `flavors` ブロック。
-3. `passes` / `tuning` オブジェクト。
+3. `passes` / `tuning` / `string` オブジェクト。
 4. `profile` プリセット。
 5. 組み込みデフォルト（全パス無効）。
 
@@ -69,6 +69,26 @@ file — it is ignored, so this setting has no effect; did you mean "str_aes"?
 [`integration/profiles/`](https://github.com/qusamulab/kagura/tree/main/integration/profiles) の JSON はこの表とまったく同じ内容です。どちらも `lib/Transforms/Profiles.def` から生成されるため、プロファイル名の意味は選び方によらず一致します。（以前は一致していませんでした: JSON 側だけが `sv` `anti-debug` `tamper` を有効にしていました。）
 
 プロファイルはデフォルトを設定するだけ。`"passes"` や `"tuning"` で個別キーをオーバーライドできます。
+
+## 文字列保護の対象を広げる
+
+既定の文字列パスは従来の選別と遅延復号を維持します。1 文字を含む短いリテラル、`%` を含む printf・ログ書式、グローバル配列や入れ子の構造体が参照する文字列も暗号化するには、起動時復号を有効にします:
+
+```json
+{
+  "profile": "CUSTOM",
+  "passes": { "str_aes": true, "wstr": true },
+  "string": { "aggressive": true }
+}
+```
+
+CLI では文字列パスのフラグと併せて `-kagura-string-aggressive` を指定します。`str`・`str_aes`・`wstr` の方針を変更する設定であり、パス自体は有効化しません。明示した `-kagura-string-aggressive=false` は JSON より優先されます。フレーバでも `string` を上書きでき、未知のキーは `-kagura-config-strict` の検証対象です。
+
+対象の文字列にはアドレスが変わらない書き込み可能な領域を使い、初期化子内のポインタと GEP オフセットを維持します。優先度 0 のモジュールコンストラクタで、通常のアプリケーションコンストラクタと `main` より前に復号します。AES は暗号文を別の定数領域に保存し、`kagura_runtime` のリンクが必要です。起動時の処理量が増え、復号後の平文はモジュールの存続中メモリに残ります。preinit フックや同じ優先度 0 のコンストラクタからの参照は初期化順序を保証できません。
+
+対象は特殊セクション外の private/internal な文字列領域です。TLS、外部公開された文字列領域、LLVM アノテーション、ローダ用メタデータ、エイリアス、Kagura 自身の鍵とヘルパーは対象外です。
+
+自動パイプラインでは `str` が `str_aes` より先に実行されます。両方を有効化しても、先に XOR 暗号化された文字列が AES に置き換わるわけではありません。対象のナロー文字列を AES で保護するには、プロファイル利用時も `"str": false` と `"str_aes": true` を指定してください。
 
 ## 実例 — 銀行 / FinTech リリース
 
@@ -108,6 +128,7 @@ clang -fpass-plugin=KaguraObfuscator.dylib \
 | `profile` | string | `FAST` / `BALANCED` / `STRONG` / `CUSTOM`。`CUSTOM` は「パスは自分で列挙する」という意味で、プリセットを適用しません。 |
 | `passes` | object | パスごとの有効・無効。キーは `-kagura-` フラグ名からプレフィックスを除いたもの。`"dwarf"` だけは `"keep"` / `"strip"` / `"obfuscate"` を取ります。 |
 | `tuning` | object | 数値パラメータ 5 つ: `seed`, `bcf_prob`, `bcf_iter`, `sub_iter`, `dci_prob`。 |
+| `string` | object | `"aggressive": true` で起動時復号による文字列保護の拡張を有効化。既定は `false`。 |
 | `allowlist` | array of string | `-kagura-allow` と同じ。空でない場合、一致するシンボルだけを難読化します。 |
 | `denylist` | array of string | `-kagura-deny` と同じ。一致するシンボルは対象外になります。 |
 | `protect` | array of string | `-kagura-protect` と同じ。最初に評価されるため、`denylist` `allowlist` `kagura_hotpath` および関数単位の `kagura_no*` アノテーションすべてに優先します。 |
@@ -136,7 +157,7 @@ KAGURA_FLAVOR=production clang -fpass-plugin=KaguraObfuscator.dylib \
       -mllvm -kagura-config=kagura.json -O2 -c app.c -o app.o
 ```
 
-フレーバブロックが受け付けるのは `profile`, `passes`, `tuning`, `allowlist`, `denylist`, `protect` — ルートから `flavors` と `audit_out` を除いたものです。
+フレーバブロックが受け付けるのは `profile`, `passes`, `tuning`, `string`, `allowlist`, `denylist`, `protect` — ルートから `flavors` と `audit_out` を除いたものです。
 
 ## 関連
 
