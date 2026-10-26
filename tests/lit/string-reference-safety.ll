@@ -13,7 +13,7 @@
 ; COMMON-LABEL: define ptr @substring(
 ; XOR: call void @kagura_decrypt_
 ; AES: call void @kagura_aesinit_
-; COMMON: ret ptr getelementptr ([19 x i8], ptr @kagura_{{(enc|aesbuf)}}_{{[0-9]+}}, i64 0, i64 7)
+; COMMON: ret ptr getelementptr{{( inbounds)?}} ([19 x i8], ptr @kagura_{{(enc|aesbuf)}}_{{[0-9]+}}, i64 0, i64 7)
 define ptr @substring() noinline memory(none) {
  ret ptr getelementptr ([19 x i8], ptr @text, i64 0, i64 7)
 }
@@ -25,7 +25,7 @@ define ptr @base() {
 }
 ; WIDE-LABEL: define i16 @wide_offset(
 ; WIDE: call void @kagura_wdecrypt_
-; WIDE: load i16, ptr getelementptr ([3 x i16], ptr @wide_direct, i64 0, i64 1)
+; WIDE: load i16, ptr getelementptr{{( inbounds)?}} ([3 x i16], ptr @wide_direct, i64 0, i64 1)
 define i16 @wide_offset() {
  %v = load i16, ptr getelementptr ([3 x i16], ptr @wide_direct, i64 0, i64 1)
  ret i16 %v
