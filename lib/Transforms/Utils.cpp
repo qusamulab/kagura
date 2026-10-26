@@ -338,9 +338,9 @@ PRNG &getModulePRNG(const Module &M) {
 bool hasExceptionHandling(const Function &F) {
   for (const BasicBlock &BB : F)
     for (const Instruction &I : BB)
-      if (isa<InvokeInst>(I) || isa<LandingPadInst>(I) ||
-          isa<ResumeInst>(I) || isa<CleanupPadInst>(I) ||
-          isa<CatchPadInst>(I) || isa<CatchReturnInst>(I) ||
+      if (isa<InvokeInst>(I) || isa<LandingPadInst>(I) || isa<ResumeInst>(I) ||
+          isa<CleanupPadInst>(I) || isa<CatchPadInst>(I) ||
+          isa<CatchSwitchInst>(I) || isa<CatchReturnInst>(I) ||
           isa<CleanupReturnInst>(I))
         return true;
   return false;
@@ -353,7 +353,7 @@ bool isEHBlock(const BasicBlock &BB) {
     return true;
   for (const Instruction &I : BB)
     if (isa<LandingPadInst>(I) || isa<CleanupPadInst>(I) ||
-        isa<CatchPadInst>(I) || isa<ResumeInst>(I))
+        isa<CatchPadInst>(I) || isa<CatchSwitchInst>(I) || isa<ResumeInst>(I))
       return true;
   return false;
 }
@@ -429,7 +429,7 @@ void demotePhis(Function &F) {
     DemotePHIToStack(Phi);
 
   // Now demote non-PHI instructions with cross-block uses.
-  // Skip: terminators, instructions with no uses, allocas (already memory),
+  // Skip terminators, instructions with no uses, and entry allocas,
   // and any instruction in the entry block whose only users are in the same
   // block (avoids demoting entry-block stores/loads that reference args).
   std::vector<Instruction *> ToSpill;
@@ -437,8 +437,9 @@ void demotePhis(Function &F) {
     for (auto &I : BB) {
       if (isa<PHINode>(I) || I.isTerminator() || I.use_empty())
         continue;
-      // Never demote alloca instructions — they are already memory references.
-      if (isa<AllocaInst>(I))
+      // Entry allocas still dominate the dispatcher. A pointer produced by
+      // an alloca in another block needs spilling just like any SSA value.
+      if (isa<AllocaInst>(I) && &BB == &F.getEntryBlock())
         continue;
       for (auto *U : I.users()) {
         auto *UI = dyn_cast<Instruction>(U);

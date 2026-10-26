@@ -26,6 +26,8 @@ namespace kagura {
 static bool flattenFunction(Function &F, PRNG &RNG) {
   if (F.isDeclaration() || F.size() < 3)
     return false;
+  if (hasExceptionHandling(F))
+    return false;
   for (auto &BB : F)
     if (isa<IndirectBrInst>(BB.getTerminator()) ||
         isa<InvokeInst>(BB.getTerminator()))
