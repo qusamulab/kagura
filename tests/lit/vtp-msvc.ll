@@ -9,6 +9,7 @@
 
 target triple = "x86_64-pc-windows-msvc19.0.0"
 
+; CHECK: @"??_R0extended" = internal constant { ptr, ptr, [10 x i8], i32 } { ptr null, ptr null, [10 x i8] c".?AVBar@@\00", i32 7 }
 ; CHECK-NOT: c".?AVFoo@@"
 ; CHECK: msvc_rtti_decrypt
 ; CHECK: kagura.vtables
@@ -34,4 +35,9 @@ entry:
   %vt = load ptr, ptr @"??_7Foo@@6B@"
   call void @"?method1@Foo@@UAEXXZ"()
   ret void
+}
+
+; Unknown descriptor layouts must not be rebuilt with a mismatched last field.
+@"??_R0extended" = internal constant { ptr, ptr, [10 x i8], i32 } {
+ ptr null, ptr null, [10 x i8] c".?AVBar@@\00", i32 7
 }
