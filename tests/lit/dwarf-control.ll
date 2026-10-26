@@ -1,6 +1,9 @@
-; RUN: %opt -load-pass-plugin=%kagura_plugin -passes=kagura-dwarf-control -kagura-dwarf=keep  -S %s | %FileCheck %s --check-prefix=KEEP
-; RUN: %opt -load-pass-plugin=%kagura_plugin -passes=kagura-dwarf-control -kagura-dwarf=strip -S %s | %FileCheck %s --check-prefix=STRIP
+; RUN: %opt -load-pass-plugin=%kagura_plugin -passes='kagura-dwarf-control,verify' -kagura-dwarf=obfuscate -S %s | %FileCheck %s --check-prefix=OBF
+; RUN: %opt -load-pass-plugin=%kagura_plugin -passes='kagura-dwarf-control,verify' -kagura-dwarf=keep  -S %s | %FileCheck %s --check-prefix=KEEP
+; RUN: %opt -load-pass-plugin=%kagura_plugin -passes='kagura-dwarf-control,verify' -kagura-dwarf=strip -S %s | %FileCheck %s --check-prefix=STRIP
 
+; OBF: !DIFile(filename: "<kagura>"
+; OBF: !DILocation(line: {{[0-9]+}}, scope:
 ; KEEP:  !DILocation
 ; STRIP-NOT: !DILocation
 
