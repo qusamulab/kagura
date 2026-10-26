@@ -37,7 +37,7 @@ namespace kagura {
 
 /// Pick a representative integer Value* visible at the start of BB.
 /// Prefers the first non-PHI integer instruction; falls back to a constant.
-static Value *pickIntValue(BasicBlock *BB, IRBuilder<> &B) {
+static Value *pickLoopPredicateInput(BasicBlock *BB) {
   for (auto &I : *BB)
     if (I.getType()->isIntegerTy() && !isa<PHINode>(&I))
       return &I;
@@ -110,7 +110,7 @@ static bool insertOpaqueInvariant(Loop *L, Function *F) {
   Instruction *Term = Preheader->getTerminator();
   IRBuilder<> B(Term);
 
-  Value *X    = pickIntValue(Preheader, B);
+  Value *X    = pickLoopPredicateInput(Preheader);
   Value *Cond = buildOpaqueFalse(B, X);
 
   // Create an unreachable sink block for the false branch.

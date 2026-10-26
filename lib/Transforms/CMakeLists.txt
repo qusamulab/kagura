@@ -26,13 +26,17 @@ set(KAGURA_PASS_DIRS
   VM               # function virtualization
 )
 
+# Support helpers are compiled individually, including in unity builds, so
+# each file must include its own dependencies.
+file(GLOB KAGURA_SUPPORT_SOURCES CONFIGURE_DEPENDS
+     "${CMAKE_CURRENT_SOURCE_DIR}/Support/*.cpp")
+
 # Non-pass translation units: option definitions, plugin registration and the
-# helpers every pass shares. Compiled individually — merging them into a unity
-# TU buys nothing because nothing else lives in their directory.
+# helpers every pass shares.
 set(KAGURA_SOURCES
   Options.cpp
   Plugin.cpp
-  Utils.cpp
+  ${KAGURA_SUPPORT_SOURCES}
 )
 
 foreach(_dir IN LISTS KAGURA_PASS_DIRS)

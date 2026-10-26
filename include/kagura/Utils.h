@@ -11,6 +11,9 @@
 
 namespace kagura {
 
+// Shared pass-support API. Implementations live in lib/Transforms/Support/;
+// see docs/architecture.md for the source-file responsibilities.
+
 // ---- Audit log helpers ----
 
 /// Attach a kagura_obfuscated metadata node to F recording the pass name.
@@ -44,7 +47,7 @@ bool shouldObfuscate(llvm::Function &F, llvm::StringRef PassAttr,
 /// Returns true if Name is a symbol kagura itself generated.
 ///
 /// Passes must not obfuscate their own helpers, and SymbolMap must not report
-/// them. Both checks used to be open-coded and had drifted apart — Utils.cpp
+/// them. Both checks used to be open-coded and had drifted apart — the passes
 /// matched only "kagura_" while SymbolMap.cpp also matched "__kagura", so the
 /// "__kg_*" helpers emitted by FunctionSplit and the "kagura.*" globals
 /// emitted by EncryptedLookupTable and ControlFlowFlattening were re-obfuscated
@@ -169,7 +172,7 @@ uint64_t randomForWidth(PRNG &RNG, unsigned Bits);
 /// Demote all PHI nodes in F to alloca/load/store (needed before flattening).
 void demotePhis(llvm::Function &F);
 
-/// Collects all basic blocks in F except entry (safe to iterate & mutate).
+/// Snapshot all basic blocks in F, including entry (safe to iterate & mutate).
 std::vector<llvm::BasicBlock *> getBlocks(llvm::Function &F);
 
 /// Get or declare an external C function in M (idempotent).

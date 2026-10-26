@@ -19,11 +19,10 @@ kagura/
 │   ├── Infrastructure/     Policy, metrics, symbol map, audit log
 │   ├── Platform/           iOS (ObjC), Android (JNI)
 │   ├── VM/                 Function virtualization
-│   ├── Support/            Private headers shared between passes (AES128.h)
+│   ├── Support/            Shared helper implementations and private headers
 │   ├── Profiles.def        FAST / BALANCED / STRONG. Generates integration/profiles/*.json
 │   ├── Options.cpp         CLI flag definitions
-│   ├── Plugin.cpp          Pass registration & pipeline wiring
-│   └── Utils.cpp           Shared IR helpers & PRNG
+│   └── Plugin.cpp          Pass registration & pipeline wiring
 ├── runtime/
 │   ├── core/               AES, VM interpreter, crash symbolication, device key
 │   ├── anti_debug/         Anti-debug / anti-Frida (cross-platform POSIX)
@@ -38,6 +37,24 @@ kagura/
 │   └── ci/                 Differential test, reproducible-build check, profile generator
 └── tests/                  CTest + FileCheck lit-based regression tests
 ```
+
+## Shared pass support
+
+`include/kagura/Utils.h` declares the shared helper API. Its implementations
+live under `lib/Transforms/Support/`, grouped by responsibility:
+
+| File | Responsibility |
+|:-----|:---------------|
+| `ObfuscationPolicy.cpp` | Function annotations, generated symbol names and protection filters |
+| `Random.cpp` | Deterministic PRNG, seed derivation, hashing and random bytes |
+| `Target.cpp` | LLVM target-triple compatibility and architecture checks |
+| `IRUtils.cpp` | Generated IR markers, integer widths, constructors, EH checks and IR rewriting |
+| `StringUtils.cpp` | String selection, use analysis and synchronized decryption guards |
+| `AES128.h` | Private AES implementation shared by encryption passes |
+
+CMake discovers support sources automatically and compiles them individually,
+including in unity builds. Each file includes its own dependencies. Pass
+implementations belong in the category directories; shared helpers belong here.
 
 ## Plugin entry point
 
