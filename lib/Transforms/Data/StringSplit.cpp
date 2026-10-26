@@ -99,28 +99,16 @@ static Function *buildSplitInit(Module &M,
                                 StringRef Suffix) {
   LLVMContext &Ctx = M.getContext();
   auto *VoidTy = Type::getVoidTy(Ctx);
-  auto *Int8Ty = Type::getInt8Ty(Ctx);
   auto *Int8PtrTy = PointerType::getUnqual(Ctx);
 
   auto *FTy = FunctionType::get(VoidTy, false);
-  auto *F   = Function::Create(FTy, Function::InternalLinkage,
-                               ("__kagura_strsplit_" + Suffix).str(), M);
+  auto *F = Function::Create(FTy, Function::InternalLinkage,
+                             ("__kagura_strsplit_copy_" + Suffix).str(), M);
   F->addFnAttr(Attribute::NoInline);
   F->addFnAttr(Attribute::NoUnwind);
 
   auto *Entry = BasicBlock::Create(Ctx, "entry", F);
-  auto *Init  = BasicBlock::Create(Ctx, "init", F);
-  auto *Done  = BasicBlock::Create(Ctx, "done", F);
-
-  // entry: if (flag) goto done; else goto init;
   IRBuilder<> B(Entry);
-  auto *FlagVal = B.CreateLoad(Int8Ty, Flag, "flag.val");
-  auto *Cmp     = B.CreateICmpNE(FlagVal, ConstantInt::get(Int8Ty, 0),
-                                  "already.init");
-  B.CreateCondBr(Cmp, Done, Init);
-
-  // init: memcpy each fragment, then set flag = 1
-  B.SetInsertPoint(Init);
   for (size_t i = 0; i < Fragments.size(); ++i) {
     auto *DstPtr = B.CreateInBoundsGEP(
         cast<ArrayType>(Recombined->getValueType()),
@@ -131,14 +119,14 @@ static Function *buildSplitInit(Module &M,
     auto *SrcPtr = B.CreateBitCast(Fragments[i], Int8PtrTy);
     B.CreateMemCpy(DstPtr, MaybeAlign(1), SrcPtr, MaybeAlign(1), Lengths[i]);
   }
-  B.CreateStore(ConstantInt::get(Int8Ty, 1), Flag);
-  B.CreateBr(Done);
-
-  // done: ret void
-  B.SetInsertPoint(Done);
   B.CreateRetVoid();
 
-  return F;
+  auto *Guard = createCtorFunction(M, "__kagura_strsplit_" + Suffix);
+  Guard->addFnAttr(Attribute::NoInline);
+  Guard->addFnAttr(Attribute::NoUnwind);
+  auto *Ret = IRBuilder<>(&Guard->getEntryBlock()).CreateRetVoid();
+  emitLazyGuard(Ret, Flag, F, "split");
+  return Guard;
 }
 
 static bool processGlobal(Module &M, GlobalVariable *GV, PRNG &RNG,
@@ -155,6 +143,41 @@ static bool processGlobal(Module &M, GlobalVariable *GV, PRNG &RNG,
   // Skip kagura's own scaffolding
   if (GV->getName().starts_with("kagura_")) return false;
   if (GV->getName().contains(".frag.")) return false;
+
+  if (!GV->hasLocalLinkage() || GV->hasSection() || GV->isThreadLocal() ||
+      GV->getAddressSpace() != 0 || GV->isExternallyInitialized())
+    return false;
+
+  // Validate every use before replacing the storage. Partial rewrites change
+  // pointer identity and can leave uninitialized recombined pointers in PHIs.
+  SmallVector<User *, 16> Worklist(GV->users());
+  SmallPtrSet<User *, 16> Seen;
+  SmallVector<Instruction *, 16> Insertions;
+  SmallPtrSet<PHINode *, 8> Phis;
+  while (!Worklist.empty()) {
+    User *U = Worklist.pop_back_val();
+    if (!Seen.insert(U).second)
+      continue;
+    if (isa<ConstantExpr>(U)) {
+      Worklist.append(U->user_begin(), U->user_end());
+      continue;
+    }
+    auto *I = dyn_cast<Instruction>(U);
+    if (!I || hasExceptionHandling(*I->getFunction()))
+      return false;
+    if (auto *Phi = dyn_cast<PHINode>(I)) {
+      Phis.insert(Phi);
+    } else {
+      Insertions.push_back(I);
+    }
+  }
+  for (PHINode *Phi : Phis)
+    for (unsigned N = 0; N < Phi->getNumIncomingValues(); ++N)
+      if (Phi->getIncomingValue(N) == GV ||
+          Seen.contains(dyn_cast<User>(Phi->getIncomingValue(N))))
+        Insertions.push_back(Phi->getIncomingBlock(N)->getTerminator());
+  if (Insertions.empty())
+    return false;
 
   // Build random fragment lengths summing to Str.size()
   std::vector<uint32_t> Lengths;
@@ -211,35 +234,14 @@ static bool processGlobal(Module &M, GlobalVariable *GV, PRNG &RNG,
   Function *InitFn =
       buildSplitInit(M, Fragments, Offsets, Lengths, Recombined, Flag, Suffix);
 
-  // Rewrite every use of GV: insert a call to InitFn at each user, then
-  // replace the operand with Recombined.
-  SmallVector<Use *, 8> Uses;
-  for (auto &U : GV->uses())
-    Uses.push_back(&U);
-
-  for (auto *U : Uses) {
-    auto *UserI = dyn_cast<Instruction>(U->getUser());
-    if (!UserI) continue;  // skip metadata / non-instruction users
-    // Skip uses inside the init function we just built — those refer to
-    // the fragments / recombined globals, not the original.
-    if (UserI->getFunction() == InitFn) continue;
-    // A PHI operand is consumed on its incoming edge. Inserting before the
-    // PHI itself would separate it from the other PHIs at the block start.
-    Instruction *InsertBefore = UserI;
-    if (auto *Phi = dyn_cast<PHINode>(UserI))
-      InsertBefore = Phi->getIncomingBlock(U->getOperandNo())->getTerminator();
-    // A catchswitch must be the first non-PHI instruction in its block.
-    if (isa<CatchSwitchInst>(InsertBefore))
-      continue;
-    IRBuilder<> B(InsertBefore);
-    B.CreateCall(InitFn);
-    U->set(Recombined);
-  }
-
-  // Original GV may still be referenced by metadata or by uses we couldn't
-  // rewrite — leave it in place if so; otherwise remove.
-  if (GV->use_empty())
-    GV->eraseFromParent();
+  SmallPtrSet<Instruction *, 16> Guarded;
+  for (Instruction *I : Insertions)
+    if (Guarded.insert(I).second) {
+      invalidateMemoryEffects(*I->getFunction());
+      IRBuilder<>(I).CreateCall(InitFn);
+    }
+  GV->replaceAllUsesWith(Recombined);
+  GV->eraseFromParent();
 
   return true;
 }

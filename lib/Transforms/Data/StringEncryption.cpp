@@ -26,6 +26,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "kagura/Options.h"
 #include "kagura/Passes/Data.h"
 #include "kagura/Utils.h"
 
@@ -161,6 +162,8 @@ static bool looksLikeApiKey(StringRef Raw) {
 static std::vector<GlobalVariable *> collectEncryptionTargets(Module &M) {
   // Standard collection (strips format strings etc.)
   auto Result = kagura::collectStringGlobals(M);
+  if (opt::StringAggressive)
+    return Result;
 
   // 4.2.12: Additionally scan for API key / URL-like strings that were
   // rejected by the standard heuristics (e.g. contain '%' from URL encoding).
@@ -199,7 +202,7 @@ PreservedAnalyses StringEncryptionPass::run(Module &M,
   auto *Int8Ty = Type::getInt8Ty(Ctx);
 
   for (auto *GV : Strings) {
-    if (!hasOnlyGuardableUses(GV))
+    if (!opt::StringAggressive && !hasOnlyGuardableUses(GV))
       continue;
 
     auto *CDA = dyn_cast<ConstantDataArray>(GV->getInitializer());
@@ -234,6 +237,18 @@ PreservedAnalyses StringEncryptionPass::run(Module &M,
                                      "kagura_enc_" + Suffix);
     EncGV->setAlignment(GV->getAlign());
 
+    // Preserve static aggregate pointers and PHI operands by redirecting all
+    // uses to stable writable storage, decrypted before application ctors.
+    if (opt::StringAggressive) {
+      auto *Stub = buildDecryptStub(M, EncGV, ArrayRef<uint8_t>(Key, KeyLen),
+                                    Suffix);
+      appendKaguraCtor(M, Stub, CtorPriority::RuntimeString);
+      GV->replaceAllUsesWith(EncGV);
+      GV->eraseFromParent();
+      Changed = true;
+      continue;
+    }
+
     // 4.2.4: Per-string decrypted flag (i8, init=0).
     auto *FlagGV = new GlobalVariable(M, Int8Ty, /*isConstant=*/false,
                                       GlobalValue::PrivateLinkage,
@@ -245,49 +260,10 @@ PreservedAnalyses StringEncryptionPass::run(Module &M,
     ArrayRef<uint8_t> KeyRef(Key, KeyLen);
     auto *Stub = buildDecryptStub(M, EncGV, KeyRef, Suffix);
 
-    // Replace uses: inject lazy guard before each instruction that uses GV,
-    // then redirect the operand to EncGV.
-    SmallVector<User *, 8> Users(GV->users());
-    for (auto *U : Users) {
-      if (auto *CE = dyn_cast<ConstantExpr>(U)) {
-        SmallVector<User *, 8> CEUsers(CE->users());
-        for (auto *CU : CEUsers) {
-          auto *Inst = dyn_cast<Instruction>(CU);
-          if (!Inst || isa<PHINode>(Inst))
-            continue;
-
-          emitLazyGuard(Inst, FlagGV, Stub);
-
-          Value *Replacement = EncGV;
-          IRBuilder<> IB(Inst);
-          if (CE->getType() != EncGV->getType())
-            Replacement = IB.CreateBitCast(EncGV, CE->getType());
-          Inst->replaceUsesOfWith(CE, Replacement);
-        }
-        continue;
-      }
-      if (auto *Inst = dyn_cast<Instruction>(U)) {
-        // PHI nodes cannot be split-points: splitBasicBlock at a PHI leaves
-        // the PHI in the wrong block with stale predecessor lists.  Skip PHI
-        // uses here; they are reached from a non-PHI use site where the guard
-        // will be inserted, or they are covered by the ConstantExpr path above.
-        if (isa<PHINode>(Inst)) {
-          continue;
-        }
-
-        // 4.2.4: emit lazy guard — splits the block, so must come before
-        // any operand replacement.
-        emitLazyGuard(Inst, FlagGV, Stub);
-
-        for (unsigned I = 0; I < Inst->getNumOperands(); ++I) {
-          if (Inst->getOperand(I)->stripPointerCasts() == GV)
-            Inst->setOperand(I, EncGV);
-        }
-      }
-    }
-
-    if (GV->use_empty())
-      GV->eraseFromParent();
+    emitStringGuards(GV, FlagGV, Stub, "lazy");
+    // Replacing the base preserves every ConstantExpr GEP/cast and offset.
+    GV->replaceAllUsesWith(EncGV);
+    GV->eraseFromParent();
 
     Changed = true;
   }

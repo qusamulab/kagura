@@ -38,6 +38,7 @@ set(ALLOWED_VACUOUS
   vm-obfuscation-unsupported.ll         # the VM must decline shapes it cannot lower
   wasm-pass-filter.ll                   # passes that must not run on a wasm triple
   config-policy.ll:PLAIN                # no policy file / -kagura-str=false
+  config-string-policy.ll:PLAIN         # conservative string policy
   config-profile-preset.ll:FAST         # FAST leaves anti-tamper off
   dwarf-control.ll:KEEP                 # -kagura-dwarf=keep must not strip
   loop-transform-phi-order.ll:LATCHSTEP # a latch-defined step must not be split

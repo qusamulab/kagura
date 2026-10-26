@@ -45,11 +45,15 @@ set(KAGURA_INT_SEED 32)
 macro(kagura_add_integration_test TEST_NAME PASSES SOURCE_FILE EXPECTED_OUTPUT REQUIRE_IR)
   set(_runtime "")
   set(_extra_flags "")
+  set(_clang_flags "")
   if(${ARGC} GREATER 5)
     set(_runtime "${ARGV5}")
   endif()
   if(${ARGC} GREATER 6)
     set(_extra_flags "${ARGV6}")
+  endif()
+  if(${ARGC} GREATER 7)
+    set(_clang_flags "${ARGV7}")
   endif()
   add_test(NAME integration_${TEST_NAME}
     COMMAND ${CMAKE_COMMAND}
@@ -63,6 +67,7 @@ macro(kagura_add_integration_test TEST_NAME PASSES SOURCE_FILE EXPECTED_OUTPUT R
       -DREQUIRE_IR=${REQUIRE_IR}
       -DSEED=${KAGURA_INT_SEED}
       "-DEXTRA_FLAGS=${_extra_flags}"
+      "-DCLANG_FLAGS=${_clang_flags}"
       -DRUNTIME=${_runtime}
       -DWORKDIR=${CMAKE_CURRENT_BINARY_DIR}/artifacts
       -P ${CMAKE_CURRENT_SOURCE_DIR}/run_integration_test.cmake
@@ -116,6 +121,65 @@ kagura_add_integration_test(str_encrypt_correctness
   string_smoke.c
   "hello world\nkagura obfuscator\n"
   "@kagura_enc_")       # the ciphertext global that replaces the literal
+
+foreach(_string_mode xor aes combined)
+  if(_string_mode STREQUAL "xor")
+    set(_string_passes "kagura-str,kagura-wstr")
+    set(_string_marker "@kagura_enc_")
+  elseif(_string_mode STREQUAL "aes")
+    set(_string_passes "kagura-str-aes,kagura-wstr")
+    set(_string_marker "@kagura_aesbuf_")
+  else()
+    set(_string_passes "kagura-str,kagura-str-aes,kagura-wstr,kagura-string-split,kagura-genc,function(kagura-fla,kagura-bcf,kagura-sub,kagura-co,kagura-cse-break,kagura-ibr,kagura-bbr,kagura-bbs,kagura-dci)")
+    set(_string_marker "@kagura_enc_")
+  endif()
+  kagura_add_integration_test(string_coverage_${_string_mode}
+    "${_string_passes}"
+    string_coverage.c
+    "Alpha\nname[0]=Alpha\nname[1]=Bravo\nname[2]=Charlie\nsaved=Bravo short=ab/xy value=1\nwide=Wide\n"
+    "${_string_marker}"
+    $<TARGET_FILE:kagura_runtime>
+    "-kagura-string-aggressive")
+endforeach()
+
+if(NOT WIN32)
+  foreach(_thread_mode xor aes split)
+    if(_thread_mode STREQUAL "xor")
+      set(_thread_pass "kagura-str")
+    elseif(_thread_mode STREQUAL "aes")
+      set(_thread_pass "kagura-str-aes")
+    else()
+      set(_thread_pass "kagura-string-split")
+    endif()
+    kagura_add_integration_test(string_threads_${_thread_mode}
+      "${_thread_pass}"
+      string_threads.c
+      "threaded literals ok\n"
+      "cmpxchg"
+      $<TARGET_FILE:kagura_runtime>
+      ""
+      "-pthread")
+  endforeach()
+endif()
+
+foreach(_reference_mode xor aes split)
+  if(_reference_mode STREQUAL "xor")
+    set(_reference_pass "kagura-str")
+    set(_reference_marker "@kagura_enc_")
+  elseif(_reference_mode STREQUAL "aes")
+    set(_reference_pass "kagura-str-aes")
+    set(_reference_marker "@kagura_aesbuf_")
+  else()
+    set(_reference_pass "kagura-string-split")
+    set(_reference_marker "@kagura_str_recombined_")
+  endif()
+  kagura_add_integration_test(string_references_${_reference_mode}
+    "${_reference_pass},kagura-wstr"
+    string_references.c
+    "1 secret-data 72 72\n"
+    "${_reference_marker}"
+    $<TARGET_FILE:kagura_runtime>)
+endforeach()
 
 kagura_add_integration_test(co_correctness
   "function(kagura-co)"

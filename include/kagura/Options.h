@@ -48,6 +48,10 @@ extern llvm::cl::opt<std::string> DWARFMode;
 /// pipeline rather than in registry order.
 extern llvm::cl::opt<bool> VTP;
 
+/// Protect short/format strings and global initializer uses via startup
+/// decryption. Off by default; applies to STR, STRAES and WSTR.
+extern llvm::cl::opt<bool> StringAggressive;
+
 // ---- Build-system / DX flags ----
 
 /// Auto-select obfuscation passes per function based on risk score.

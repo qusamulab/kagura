@@ -35,6 +35,7 @@ These five, and only these five, are the `"tuning"` object.
 | `-kagura-build-id=<id>` | — | — | Build identifier mixed into PRNG seed for per-build key rotation |
 | `-kagura-vtp` | — | `false` | RTTI / vtable protection (C++ ABI) |
 | `-kagura-autoselect` | — | `false` | Score each function and pick its passes automatically |
+| `-kagura-string-aggressive` | `string.aggressive` | `false` | Broader string coverage via startup decryption; see [Configuration](configuration.md#broader-string-protection) |
 
 `-kagura-o0-protect` enables the passes whose cost stays bounded at `-O0`:
 `str`, `str-aes`, `wstr`, `anti-debug`, and DWARF control when `-kagura-dwarf`
@@ -70,6 +71,8 @@ The `"tuning"` object reads exactly the five Core tuning rows above. The
 `"passes"` object reads the per-pass enables (one key per `-kagura-<pass>`
 flag) plus `"dwarf"`. `protect` / `denylist` / `allowlist` / `audit_out` are
 root keys, not `"tuning"` keys.
+
+The `"string"` object accepts `"aggressive"` for `-kagura-string-aggressive`.
 
 Everything else on this page — `-kagura-lto-safe`, `-kagura-o0-protect`,
 `-kagura-build-id`, `-kagura-vtp`, `-kagura-autoselect`, `-kagura-metrics`,

@@ -17,4 +17,6 @@
 
 `kagura-str` と `kagura-sub` の Before/After は [Before / After 例](before-after.md) を参照。
 
+`-kagura-string-aggressive`（JSON `"string": {"aggressive": true}`）で、`str`・`str_aes`・`wstr` の対象を短い文字列・書式文字列・グローバル初期化子からの参照にも広げられます。起動時に復号し、アドレスが変わらない領域に保持します。既定は従来の保守的な動作です。`str` は `str_aes` より先に実行されるため、ナロー文字列を AES に任せる場合は `str` を無効化してください。対象範囲・初期化順序・メモリ保持の注意点は [設定](../configuration.ja.md) を参照してください。
+
 ゲーム実行時の値 (HP, 通貨等) を C++ レベルで守るには [ゲーム保護](../game-protection.md) を参照 — `Protected<T>` は実行時のシャドウコピー整合性チェックを追加することで `kagura-mvo` を補完します。

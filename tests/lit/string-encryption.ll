@@ -19,10 +19,11 @@
 
 ; Lazy decrypt guard at the use site.
 ; CHECK: define i32 @main
-; CHECK: %[[F:[a-z0-9._]+]] = load i8, ptr @[[FLAG]]
-; CHECK: icmp eq i8 %[[F]], 0
+; CHECK: %[[F:[a-z0-9._]+]] = load atomic i8, ptr @[[FLAG]] acquire
+; CHECK: icmp eq i8 %[[F]], 2
+; CHECK: cmpxchg ptr @[[FLAG]], i8 0, i8 1 acquire monotonic
 ; CHECK: call void @[[DEC:kagura_decrypt_[0-9]+]]()
-; CHECK: store i8 1, ptr @[[FLAG]]
+; CHECK: store atomic i8 2, ptr @[[FLAG]] release
 ; CHECK: call i32 @strlen(ptr @[[ENC]])
 
 ; The decryptor XORs the ciphertext with the repeating key in place.

@@ -237,10 +237,16 @@ bool isWasmTarget(const llvm::Module &M);
 
 /// Collect all ConstantDataArray globals that look like strings, are used in
 /// at least one function, and satisfy basic heuristics (length >= 4, no format
-/// specifiers, etc.).  If StrictLinkage is true, only private/internal globals
-/// are collected.
+/// specifiers, etc.). If StrictLinkage is true, only private/internal globals
+/// are collected. With StringAggressive, use startup-safe private/internal
+/// strings instead, including short/format strings and aggregate-only uses.
 std::vector<llvm::GlobalVariable *>
 collectStringGlobals(llvm::Module &M, bool StrictLinkage = false);
+
+/// Whether startup decryption can safely replace this application-owned
+/// string. Allows PHIs and nested constant arrays/structs, but excludes
+/// externally visible storage, TLS, special sections and compiler metadata.
+bool canProtectStringAtStartup(const llvm::GlobalVariable &GV);
 
 // ---- Global-variable use analysis ----
 
@@ -253,15 +259,21 @@ collectStringGlobals(llvm::Module &M, bool StrictLinkage = false);
 /// consumed. PHI users are excluded because the guard splits the block, which
 /// would invalidate the PHI's incoming edges.
 bool hasOnlyGuardableUses(const llvm::GlobalVariable *GV);
+/// Clear inferred memory effects on F and its direct callers after adding
+/// initialization writes; also clear corresponding call-site promises.
+void invalidateMemoryEffects(llvm::Function &F);
+/// Guard every instruction leaf of a previously validated constant-use graph.
+void emitStringGuards(llvm::GlobalVariable *GV, llvm::GlobalVariable *FlagGV,
+                      llvm::Function *DecryptStub, llvm::StringRef BBPrefix);
 
 // ---- Lazy-decrypt guard ----
 
 /// Emit, immediately before InsertBefore:
 ///
-///     if (!FlagGV) { DecryptStub(); FlagGV = 1; }
+///     initialize_once(FlagGV, DecryptStub);
 ///
-/// so an encrypted global is decrypted at most once, on first use, rather than
-/// on every path that reaches it. BBPrefix names the blocks the guard creates
+/// FlagGV starts at 0, is claimed as 1, and is published as 2 with
+/// acquire/release synchronization. BBPrefix names the blocks the guard creates
 /// ("lazy" for byte strings, "wlazy" for wide strings) purely so the IR stays
 /// readable when both passes run.
 void emitLazyGuard(llvm::Instruction *InsertBefore,
