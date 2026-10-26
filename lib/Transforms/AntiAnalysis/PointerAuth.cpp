@@ -24,18 +24,17 @@
 // On arm64e targets, LLVM provides the `llvm.ptrauth.sign` and
 // `llvm.ptrauth.auth` intrinsics that lower to the native `pacia`/`autia`
 // instructions.  When the module triple is arm64e:
-//   1. At each initialiser site, replace the function pointer with:
-//        signed = call @llvm.ptrauth.sign(ptr fn, i32 0, i64 disc)
+//   1. Initialize each slot once before its first access (and from a ctor):
+//        signed = call @llvm.ptrauth.sign(i64 ptrtoint(fn), i32 0, i64 disc)
 //      where disc is a 48-bit discriminator derived from the global's name.
-//   2. At each load+call site, insert:
-//        auth_ptr = call @llvm.ptrauth.auth(ptr loaded_ptr, i32 0, i64 disc)
-//        call auth_ptr(...)
+//   2. Authenticate every loaded pointer's integer representation, then convert
+//      it back to ptr. Sign each subsequent store with the same key/discriminator.
 //
 // The ptrauth key 0 (IA) is used because we are authenticating instruction
 // (code) pointers.  Key 1 (IB) is the alternative for data pointers.
 //
 // Globals that are skipped:
-//   - Non-constant function-pointer globals (mutation tracking too complex)
+//   - Public, thread-local, special-section or unsupported pointer storage
 //   - Globals whose initializer is not a Function constant or null
 //   - Globals whose name starts with "kagura_" or "llvm."
 //   - Globals with no uses (dead)
@@ -51,6 +50,7 @@
 #include "kagura/Passes/AntiAnalysis.h"
 #include "kagura/Utils.h"
 
+#include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -327,15 +327,22 @@ static uint64_t computeDiscriminator(StringRef Name) {
   return static_cast<uint64_t>(fnv1a32(Name) & 0xFFFFu);
 }
 
-/// Return the @llvm.ptrauth.sign intrinsic (LLVM 17+ with ptrauth support).
-/// Returns nullptr if the intrinsic is not available in this build.
+static Function *getPtrauthIntrinsic(Module &M, Intrinsic::ID ID) {
+#if LLVM_VERSION_MAJOR >= 21
+  return Intrinsic::getOrInsertDeclaration(&M, ID);
+#else
+  return Intrinsic::getDeclaration(&M, ID);
+#endif
+}
+
+/// Return the @llvm.ptrauth.sign intrinsic with LLVM's canonical signature.
 static Function *getPtrauthSignIntrinsic(Module &M) {
-  return Intrinsic::getDeclaration(&M, Intrinsic::ptrauth_sign);
+  return getPtrauthIntrinsic(M, Intrinsic::ptrauth_sign);
 }
 
 /// Return the @llvm.ptrauth.auth intrinsic.
 static Function *getPtrauthAuthIntrinsic(Module &M) {
-  return Intrinsic::getDeclaration(&M, Intrinsic::ptrauth_auth);
+  return getPtrauthIntrinsic(M, Intrinsic::ptrauth_auth);
 }
 
 /// Hardware PAC: sign the function pointer initializer in GV using pacia (key 0).
