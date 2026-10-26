@@ -14,6 +14,7 @@
 #include "kagura/Passes/Data.h"
 #include "kagura/Utils.h"
 
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -21,6 +22,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -38,7 +40,8 @@ namespace kagura {
 static bool shouldSkipGlobal(const GlobalVariable &GV) {
   StringRef Name = GV.getName();
   // Preserve kagura_ internals and all LLVM-reserved names.
-  if (Name.starts_with("kagura_") || Name.starts_with("llvm."))
+  if (isKaguraSymbol(Name) || Name.starts_with("llvm.") || GV.isThreadLocal() ||
+      GV.isExternallyInitialized() || GV.hasSection())
     return true;
   return false;
 }
@@ -56,22 +59,6 @@ static bool isSupportedIntArrayTy(Type *Ty) {
 static bool isStringGlobal(const GlobalVariable &GV) {
   auto *CDA = dyn_cast<ConstantDataArray>(GV.getInitializer());
   return CDA && CDA->isString();
-}
-
-/// Return true if GV has at least one use that is (or transitively leads to)
-/// a LoadInst inside a function body.
-static bool hasLoadUseInFunction(const GlobalVariable &GV) {
-  for (const auto *U : GV.users()) {
-    if (isa<LoadInst>(U))
-      return true;
-    // ConstantExpr GEP/bitcast wrapping the global
-    if (const auto *CE = dyn_cast<ConstantExpr>(U)) {
-      for (const auto *CEU : CE->users())
-        if (isa<LoadInst>(CEU))
-          return true;
-    }
-  }
-  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,8 +92,6 @@ static std::vector<EligibleGlobal> collectEligibleGlobals(Module &M) {
       // Scalar integer constant: initializer must be ConstantInt.
       if (!isa<ConstantInt>(GV.getInitializer()))
         continue;
-      if (!hasLoadUseInFunction(GV))
-        continue;
       Result.push_back({&GV, /*IsArray=*/false});
       continue;
     }
@@ -118,8 +103,6 @@ static std::vector<EligibleGlobal> collectEligibleGlobals(Module &M) {
       // Initializer must be ConstantDataArray or ConstantArray.
       if (!isa<ConstantDataArray>(GV.getInitializer()) &&
           !isa<ConstantArray>(GV.getInitializer()))
-        continue;
-      if (!hasLoadUseInFunction(GV))
         continue;
       Result.push_back({&GV, /*IsArray=*/true});
     }
@@ -162,23 +145,53 @@ static std::optional<APInt> getArrayElement(Constant *Init, uint64_t Idx,
 // Load replacement
 // ---------------------------------------------------------------------------
 
-/// Walk all users of GV (and ConstantExpr wrappers), collect every LoadInst.
-static SmallVector<LoadInst *, 8> collectLoads(GlobalVariable *GV) {
-  SmallVector<LoadInst *, 8> Loads;
-  for (auto *U : GV->users()) {
-    if (auto *LI = dyn_cast<LoadInst>(U)) {
-      Loads.push_back(LI);
+struct ArrayLoad {
+  LoadInst *LI;
+  uint64_t ElemIdx;
+};
+
+/// Validate the complete access graph before encrypting anything. A single
+/// escaping pointer or unhandled access would otherwise observe ciphertext.
+static bool collectRewritableLoads(GlobalVariable *GV,
+                                   SmallVectorImpl<ArrayLoad> &Loads) {
+  const DataLayout &DL = GV->getParent()->getDataLayout();
+  auto *ArrTy = dyn_cast<ArrayType>(GV->getValueType());
+  Type *ElemTy = ArrTy ? ArrTy->getElementType() : GV->getValueType();
+  uint64_t N = ArrTy ? ArrTy->getNumElements() : 1;
+  uint64_t ElemSize = DL.getTypeAllocSize(ElemTy).getFixedValue();
+  SmallVector<std::pair<Value *, uint64_t>, 16> Worklist{{GV, 0}};
+  SmallPtrSet<Value *, 16> Seen;
+  while (!Worklist.empty()) {
+    auto [Ptr, Offset] = Worklist.pop_back_val();
+    if (!Seen.insert(Ptr).second)
       continue;
-    }
-    // ConstantExpr (GEP/bitcast) – only consider direct loads from them for
-    // the scalar case; array element loads are handled separately below.
-    if (auto *CE = dyn_cast<ConstantExpr>(U)) {
-      for (auto *CEU : CE->users())
-        if (auto *LI = dyn_cast<LoadInst>(CEU))
-          Loads.push_back(LI);
+    for (User *U : Ptr->users()) {
+      if (auto *LI = dyn_cast<LoadInst>(U)) {
+        if (LI->getType() != ElemTy || !LI->isSimple() || Offset % ElemSize ||
+            Offset / ElemSize >= N)
+          return false;
+        Loads.push_back({LI, Offset / ElemSize});
+        continue;
+      }
+      if (auto *GEP = dyn_cast<GEPOperator>(U)) {
+        if (GEP->getPointerOperand() != Ptr)
+          return false;
+        APInt Delta(DL.getIndexTypeSizeInBits(Ptr->getType()), 0);
+        if (!GEP->accumulateConstantOffset(DL, Delta) || Delta.isNegative() ||
+            Delta.getActiveBits() > 64)
+          return false;
+        uint64_t D = Delta.getZExtValue();
+        if (D > UINT64_MAX - Offset)
+          return false;
+        Worklist.push_back({cast<Value>(U), Offset + D});
+        continue;
+      }
+      // All other users (including aliases, static pointer tables and calls)
+      // can access the storage without a matching decryption.
+      return false;
     }
   }
-  return Loads;
+  return !Loads.empty();
 }
 
 // ---------------------------------------------------------------------------
@@ -206,8 +219,8 @@ static bool encryptScalarGlobal(GlobalVariable *GV, PRNG &RNG) {
   APInt EncVal   = PlainVal ^ Key;
 
   // Collect loads BEFORE mutating the global (invalidates nothing yet).
-  SmallVector<LoadInst *, 8> Loads = collectLoads(GV);
-  if (Loads.empty())
+  SmallVector<ArrayLoad, 16> Loads;
+  if (!collectRewritableLoads(GV, Loads))
     return false;
 
   // Update the initializer to the encrypted value.
@@ -217,7 +230,9 @@ static bool encryptScalarGlobal(GlobalVariable *GV, PRNG &RNG) {
 
   // At every load site, inject: %plain = xor %loaded, K
   auto *KeyConst = ConstantInt::get(IntTy, Key);
-  for (LoadInst *LI : Loads) {
+  for (auto &AL : Loads) {
+    LoadInst *LI = AL.LI;
+    LI->setMetadata(LLVMContext::MD_range, nullptr);
     IRBuilder<> B(LI->getNextNode());
     auto *Decrypted = B.CreateXor(LI, KeyConst, LI->getName() + ".dec");
     // Replace all uses of the original load value with the decrypted one,
@@ -233,61 +248,6 @@ static bool encryptScalarGlobal(GlobalVariable *GV, PRNG &RNG) {
 // ---------------------------------------------------------------------------
 // Array of integers global encryption
 // ---------------------------------------------------------------------------
-
-/// Collect all GetElementPtrInst (and ConstantExpr-GEP) users that index into
-/// GV, together with the constant index used, and the subsequent LoadInst.
-///
-/// For each such pair (GEP, LI) where GEP is `getelementptr [N x iW], ptr @GV,
-/// i64 0, i64 <idx>` and LI is `load iW, ptr GEP`, we record (LI, idx).
-struct ArrayLoad {
-  LoadInst *LI;
-  uint64_t  ElemIdx;
-};
-
-static SmallVector<ArrayLoad, 16> collectArrayLoads(GlobalVariable *GV) {
-  SmallVector<ArrayLoad, 16> Result;
-  auto *ArrTy = cast<ArrayType>(GV->getValueType());
-  uint64_t NumElems = ArrTy->getNumElements();
-
-  auto handleGEP = [&](Value *GEPVal) {
-    // We expect: GEP [N x iW], ptr @GV, i64 0, i64 <idx>
-    uint64_t ElemIdx = UINT64_MAX;
-    if (auto *GEP = dyn_cast<GetElementPtrInst>(GEPVal)) {
-      if (GEP->getNumIndices() == 2) {
-        auto *I0 = dyn_cast<ConstantInt>(GEP->getOperand(1));
-        auto *I1 = dyn_cast<ConstantInt>(GEP->getOperand(2));
-        if (I0 && I0->isZero() && I1)
-          ElemIdx = I1->getZExtValue();
-      }
-    } else if (auto *CE = dyn_cast<ConstantExpr>(GEPVal)) {
-      if (CE->getOpcode() == Instruction::GetElementPtr &&
-          CE->getNumOperands() == 3) {
-        auto *I0 = dyn_cast<ConstantInt>(CE->getOperand(1));
-        auto *I1 = dyn_cast<ConstantInt>(CE->getOperand(2));
-        if (I0 && I0->isZero() && I1)
-          ElemIdx = I1->getZExtValue();
-      }
-    }
-    if (ElemIdx == UINT64_MAX || ElemIdx >= NumElems)
-      return;
-
-    // Collect loads from this GEP.
-    for (auto *U : GEPVal->users()) {
-      if (auto *LI = dyn_cast<LoadInst>(U))
-        Result.push_back({LI, ElemIdx});
-    }
-  };
-
-  for (auto *U : GV->users()) {
-    handleGEP(U);
-    // Also handle ConstantExpr wrapped around another ConstantExpr (rare).
-    if (auto *CE = dyn_cast<ConstantExpr>(U))
-      for (auto *CEU : CE->users())
-        handleGEP(CEU);
-  }
-
-  return Result;
-}
 
 /// Encrypt an array-of-integers global: each element[i] is XOR'd with
 /// (BaseKey ^ i), giving a distinct effective key per element.
@@ -306,8 +266,8 @@ static bool encryptArrayGlobal(GlobalVariable *GV, PRNG &RNG) {
   unsigned Bits = ElemTy->getIntegerBitWidth();
 
   // Collect loads before touching the global.
-  SmallVector<ArrayLoad, 16> Loads = collectArrayLoads(GV);
-  if (Loads.empty())
+  SmallVector<ArrayLoad, 16> Loads;
+  if (!collectRewritableLoads(GV, Loads))
     return false;
 
   // Generate one base key; per-element key = BaseKey ^ index.
@@ -343,6 +303,7 @@ static bool encryptArrayGlobal(GlobalVariable *GV, PRNG &RNG) {
 
   // At each load site for element[i], inject XOR with (BaseKey ^ i).
   for (auto &AL : Loads) {
+    AL.LI->setMetadata(LLVMContext::MD_range, nullptr);
     APInt ElemKey  = elemKey(AL.ElemIdx);
     auto *KeyConst = ConstantInt::get(ElemTy, ElemKey);
     IRBuilder<> B(AL.LI->getNextNode());
