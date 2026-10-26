@@ -100,9 +100,10 @@ static void buildOrPatchJNIOnLoad(Module &M,
 
   Function *OnLoad = M.getFunction("JNI_OnLoad");
   bool IsNew = false;
-  if (!OnLoad) {
-    OnLoad = Function::Create(OnLoadTy, Function::ExternalLinkage,
-                               "JNI_OnLoad", M);
+  if (!OnLoad)
+    OnLoad =
+        Function::Create(OnLoadTy, Function::ExternalLinkage, "JNI_OnLoad", M);
+  if (OnLoad->isDeclaration()) {
     auto *Entry = BasicBlock::Create(Ctx, "entry", OnLoad);
     // Will fill in below
     IsNew = true;
@@ -196,6 +197,15 @@ PreservedAnalyses JNIObfuscationPass::run(Module &M,
   if (!IsAndroid && !TripleStr.empty())
     return PreservedAnalyses::all();
 
+  // Decline an incompatible pre-existing hook before renaming any methods.
+  if (auto *OnLoad = M.getFunction("JNI_OnLoad")) {
+    auto *PtrTy = PointerType::getUnqual(M.getContext());
+    auto *Expected = FunctionType::get(Type::getInt32Ty(M.getContext()),
+                                       {PtrTy, PtrTy}, false);
+    if (OnLoad->getFunctionType() != Expected)
+      return PreservedAnalyses::all();
+  }
+
   auto &RNG = getModulePRNG(M);
 
   SmallVector<Function *, 16> JNIFuncs;
@@ -219,7 +229,7 @@ PreservedAnalyses JNIObfuscationPass::run(Module &M,
     JM.NewFnName = "kagura_jni_" + std::to_string(RNG.next32());
     F->setName(JM.NewFnName);
     F->setLinkage(Function::InternalLinkage);
-    F->setVisibility(GlobalValue::HiddenVisibility);
+    F->setVisibility(GlobalValue::DefaultVisibility);
 
     Methods.push_back(JM);
   }
