@@ -223,7 +223,15 @@ static bool processGlobal(Module &M, GlobalVariable *GV, PRNG &RNG,
     // Skip uses inside the init function we just built — those refer to
     // the fragments / recombined globals, not the original.
     if (UserI->getFunction() == InitFn) continue;
-    IRBuilder<> B(UserI);
+    // A PHI operand is consumed on its incoming edge. Inserting before the
+    // PHI itself would separate it from the other PHIs at the block start.
+    Instruction *InsertBefore = UserI;
+    if (auto *Phi = dyn_cast<PHINode>(UserI))
+      InsertBefore = Phi->getIncomingBlock(U->getOperandNo())->getTerminator();
+    // A catchswitch must be the first non-PHI instruction in its block.
+    if (isa<CatchSwitchInst>(InsertBefore))
+      continue;
+    IRBuilder<> B(InsertBefore);
     B.CreateCall(InitFn);
     U->set(Recombined);
   }
