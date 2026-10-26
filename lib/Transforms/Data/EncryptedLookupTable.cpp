@@ -68,14 +68,19 @@ static bool isLookupSwitch(SwitchInst *SI,
   // All cases must jump to distinct successors that each contain exactly
   // one instruction: a ret of a ConstantInt.
   for (auto &C : SI->cases()) {
-    int64_t CaseVal = C.getCaseValue()->getSExtValue();
+    const APInt &Input = C.getCaseValue()->getValue();
+    if (Input.getActiveBits() > 8)
+      return false;
+    int64_t CaseVal = Input.getZExtValue();
     BasicBlock *Dest = C.getCaseSuccessor();
     if (Dest->size() != 1) return false;
     auto *RI = dyn_cast<ReturnInst>(&Dest->front());
     if (!RI || !RI->getReturnValue()) return false;
     auto *CI = dyn_cast<ConstantInt>(RI->getReturnValue());
     if (!CI) return false;
-    Cases.emplace_back(CaseVal, CI->getSExtValue());
+    if (CI->getValue().getActiveBits() > 8)
+      return false;
+    Cases.emplace_back(CaseVal, CI->getZExtValue());
   }
 
   if (Cases.empty()) return false;
@@ -148,8 +153,11 @@ PreservedAnalyses EncryptedLookupTablePass::run(Function &F,
     IRBuilder<> B(SI);
 
     auto *I64Ty = Type::getInt64Ty(Ctx);
-    Value *CondExt = B.CreateZExt(Cond, I64Ty, "elt.idx");
-    Value *BoundVal = ConstantInt::get(I64Ty, (uint64_t)N);
+    // Retain all condition bits for the bounds check, including i128 inputs.
+    auto *IndexTy = Type::getIntNTy(
+        Ctx, std::max(64u, Cond->getType()->getIntegerBitWidth()));
+    Value *CondExt = B.CreateZExtOrTrunc(Cond, IndexTy, "elt.idx");
+    Value *BoundVal = ConstantInt::get(IndexTy, (uint64_t)N);
 
     // Bounds check: if idx >= N, jump to default
     Value *InBounds = B.CreateICmpULT(CondExt, BoundVal, "elt.inbounds");
@@ -163,8 +171,8 @@ PreservedAnalyses EncryptedLookupTablePass::run(Function &F,
                     {ConstantInt::get(I64Ty, 0), CondExt}, "elt.gep");
     auto *Enc = LB.CreateLoad(I8Ty, GEP, "elt.enc");
     auto *Dec = LB.CreateXor(Enc, ConstantInt::get(I8Ty, Key), "elt.dec");
-    auto *RetTy = cast<IntegerType>(SI->getCondition()->getType());
-    Value *Extended = LB.CreateZExt(Dec, RetTy, "elt.val");
+    auto *RetTy = cast<IntegerType>(F.getReturnType());
+    Value *Extended = LB.CreateZExtOrTrunc(Dec, RetTy, "elt.val");
     LB.CreateBr(RetBB);
 
     // Return the decrypted value
