@@ -13,7 +13,7 @@
 //        call %p(original_args...)
 //   3. A module constructor (kagura_init_thunk_table, priority 65535) calls
 //      dlsym(RTLD_DEFAULT, "symbol_name") for each slot at startup, populating
-//      the table before any user code runs.
+//      the table. Per-slot resolvers also handle calls from earlier ctors.
 //
 // Calls that are skipped:
 //   - Calls to defined (non-declaration) functions in this module
@@ -196,30 +196,65 @@ static Function *buildInitConstructor(Module &M, GlobalVariable *ThunkTable,
         TableArrTy, ThunkTable,
         {ConstantInt::get(Int64Ty, 0), ConstantInt::get(Int64Ty, Idx)},
         "slot_ptr");
-    B.CreateAlignedStore(Resolved, SlotPtr, Align(8));
+    B.CreateAlignedStore(Resolved, SlotPtr, Align(8))
+        ->setAtomic(AtomicOrdering::Release);
   }
 
   B.CreateRetVoid();
   return Ctor;
 }
 
+// Resolve on first use as well as at startup: application constructors may
+// call imports before the late thunk-table constructor has run.
+static Function *buildSlotResolver(Module &M, GlobalVariable *Table,
+                                   Function &Callee, unsigned Idx) {
+  LLVMContext &Ctx = M.getContext();
+  auto *PtrTy = PointerType::getUnqual(Ctx);
+  auto *FTy = FunctionType::get(PtrTy, false);
+  auto *F = Function::Create(FTy, GlobalValue::InternalLinkage,
+                             "__kagura_resolve_" + std::to_string(Idx), M);
+  auto *Entry = BasicBlock::Create(Ctx, "entry", F);
+  auto *Lookup = BasicBlock::Create(Ctx, "lookup", F);
+  auto *Done = BasicBlock::Create(Ctx, "done", F);
+  IRBuilder<> B(Entry);
+  auto *Slot = B.CreateInBoundsGEP(Table->getValueType(), Table,
+                                   {B.getInt64(0), B.getInt64(Idx)});
+  auto *Cached = B.CreateAlignedLoad(PtrTy, Slot, Align(8));
+  Cached->setAtomic(AtomicOrdering::Acquire);
+  B.CreateCondBr(B.CreateIsNull(Cached), Lookup, Done);
+
+  B.SetInsertPoint(Lookup);
+  auto *HandleTy = FunctionType::get(PtrTy, false);
+  auto Handle = M.getOrInsertFunction("kagura_rtld_default_handle", HandleTy);
+  auto *DlsymTy = FunctionType::get(PtrTy, {PtrTy, PtrTy}, false);
+  auto Dlsym = M.getOrInsertFunction("dlsym", DlsymTy);
+  auto *Name = B.CreateGlobalString(Callee.getName(), "__kagura_lookup_name");
+  auto *Resolved = B.CreateCall(Dlsym, {B.CreateCall(Handle), Name});
+  // Concurrent first uses may perform redundant lookups, but never race on
+  // the cache or publish a partially initialized pointer.
+  B.CreateAlignedStore(Resolved, Slot, Align(8))
+      ->setAtomic(AtomicOrdering::Release);
+  B.CreateBr(Done);
+  B.SetInsertPoint(Done);
+  auto *Result = B.CreatePHI(PtrTy, 2);
+  Result->addIncoming(Cached, Entry);
+  Result->addIncoming(Resolved, Lookup);
+  B.CreateRet(Result);
+  return F;
+}
+
 // ---- Rewrite call sites ----
 
 /// Replace every interceptable call to Callee with an indirect call through
-/// the thunk table slot at SlotIdx.  Returns the number of call sites rewritten.
-static unsigned rewriteCallSites(Function &Callee, unsigned SlotIdx,
-                                  GlobalVariable *ThunkTable, Module &M) {
-  LLVMContext &Ctx      = M.getContext();
-  auto *Int64Ty         = Type::getInt64Ty(Ctx);
-  ArrayType *TableArrTy = cast<ArrayType>(ThunkTable->getValueType());
-  PointerType *PtrTy    = PointerType::getUnqual(Ctx);
-  FunctionType *CalleeFTy = Callee.getFunctionType();
-
+/// a cached slot resolver. Returns the number of call sites rewritten.
+static unsigned rewriteCallSites(Function &Callee, Function *Resolver) {
   // Collect all call sites first — mutating while iterating is unsafe.
   SmallVector<CallInst *, 16> Worklist;
   for (auto &U : Callee.uses()) {
     auto *CI = dyn_cast<CallInst>(U.getUser());
     if (!CI)
+      continue;
+    if (isKaguraSymbol(CI->getFunction()->getName()))
       continue;
     if (CI->getCalledOperand() != &Callee)
       continue; // used as a value, not as callee
@@ -232,33 +267,11 @@ static unsigned rewriteCallSites(Function &Callee, unsigned SlotIdx,
   for (auto *CI : Worklist) {
     IRBuilder<> B(CI);
 
-    // %slot_ptr = getelementptr __kagura_thunk_table, 0, SlotIdx
-    Value *SlotPtr = B.CreateInBoundsGEP(
-        TableArrTy, ThunkTable,
-        {ConstantInt::get(Int64Ty, 0), ConstantInt::get(Int64Ty, SlotIdx)},
-        "ci.slot_ptr");
+    Value *FnPtr = B.CreateCall(Resolver, {}, "ci.fn_ptr");
+    invalidateMemoryEffects(*CI->getFunction());
 
-    // %fn_ptr = load ptr, ptr %slot_ptr
-    Value *FnPtr = B.CreateAlignedLoad(PtrTy, SlotPtr, Align(8),
-                                       /*isVolatile=*/false, "ci.fn_ptr");
-
-    // Collect args and operand bundles
-    SmallVector<Value *, 8> Args(CI->args());
-    SmallVector<OperandBundleDef, 2> Bundles;
-    for (unsigned I = 0, E = CI->getNumOperandBundles(); I != E; ++I)
-      Bundles.emplace_back(CI->getOperandBundleAt(I));
-
-    CallInst *NewCI = B.CreateCall(CalleeFTy, FnPtr, Args, Bundles, "");
-    NewCI->setCallingConv(CI->getCallingConv());
-    NewCI->setAttributes(CI->getAttributes());
-    NewCI->setTailCallKind(CI->getTailCallKind());
-    NewCI->setDebugLoc(CI->getDebugLoc());
-    if (CI->getType()->isFPOrFPVectorTy())
-      NewCI->copyFastMathFlags(CI);
-
-    if (!CI->getType()->isVoidTy())
-      CI->replaceAllUsesWith(NewCI);
-    CI->eraseFromParent();
+    // Preserve the call site's prototype, including old-style C calls.
+    replaceCalleeWith(CI, CI->getFunctionType(), FnPtr);
     ++Count;
   }
   return Count;
@@ -283,8 +296,10 @@ PreservedAnalyses CallIndirectionPass::run(Module &M,
       buildThunkTable(M, static_cast<unsigned>(Callees.size()));
 
   // 3. Rewrite every call site for each external callee.
-  for (unsigned Idx = 0; Idx < Callees.size(); ++Idx)
-    rewriteCallSites(*Callees[Idx], Idx, ThunkTable, M);
+  for (unsigned Idx = 0; Idx < Callees.size(); ++Idx) {
+    auto *Resolver = buildSlotResolver(M, ThunkTable, *Callees[Idx], Idx);
+    rewriteCallSites(*Callees[Idx], Resolver);
+  }
 
   // 4. Build and register the constructor that fills the table at startup.
   Function *Ctor = buildInitConstructor(M, ThunkTable, Callees);

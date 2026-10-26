@@ -244,16 +244,18 @@ private:
 
   /// Give every alloca a fixed offset in the interpreter's frame arena.
   ///
-  /// A constant-size alloca outside the entry block gets one offset too, which
-  /// re-uses the same address on every iteration.  That matches what LLVM's own
-  /// alloca promotion does; a *dynamically* sized alloca has no such fixed
-  /// layout and makes the function ineligible.
+  /// Only entry-block allocas can use a fixed arena offset. Executing a
+  /// non-entry alloca repeatedly creates distinct live allocations.
   bool layoutFrame() {
     for (BasicBlock &BB : F)
       for (Instruction &I : BB) {
         auto *AI = dyn_cast<AllocaInst>(&I);
         if (!AI)
           continue;
+        // Repeated execution creates distinct live allocations in LLVM IR;
+        // one fixed arena offset cannot represent that lifetime or identity.
+        if (&BB != &F.getEntryBlock())
+          return fail();
         if (AI->getType()->getPointerAddressSpace() != 0)
           return fail();
         auto Size = AI->getAllocationSize(DL);
@@ -525,7 +527,7 @@ private:
   }
 
   bool emitLoad(LoadInst *LI) {
-    if (LI->isAtomic())
+    if (!LI->isSimple())
       return fail();
     Type *Ty = LI->getType();
     uint8_t Op;
@@ -544,7 +546,7 @@ private:
   }
 
   bool emitStore(StoreInst *SI) {
-    if (SI->isAtomic())
+    if (!SI->isSimple())
       return fail();
     Value *Val = SI->getValueOperand();
     uint8_t Op;
@@ -635,7 +637,7 @@ private:
 
       if (auto *CI = dyn_cast<ConstantInt>(Idx)) {
         // GEP indices are signed, so fold with wrapping signed arithmetic.
-        uint64_t Off = (uint64_t)CI->getValue().getSExtValue() * Stride;
+        uint64_t Off = CI->getValue().sextOrTrunc(64).getZExtValue() * Stride;
         if (Off) {
           E.emitPushImm(Off);
           emitWidthOp(vm::OP_ADD, 64);
@@ -704,7 +706,8 @@ private:
   }
 
   bool emitCall(CallInst *CI) {
-    if (CI->isInlineAsm() || CI->isMustTailCall())
+    if (CI->isInlineAsm() || CI->isMustTailCall() || CI->hasOperandBundles() ||
+        CI->hasFnAttr(Attribute::ReturnsTwice) || CI->isConvergent())
       return fail();
     Function *Callee = CI->getCalledFunction();
     if (!Callee)
@@ -968,6 +971,13 @@ PreservedAnalyses VMObfuscationPass::run(Function &F,
     return PreservedAnalyses::all();
   if (!shouldObfuscate(F, "vm"))
     return PreservedAnalyses::all();
+  const DataLayout &DL = F.getParent()->getDataLayout();
+  if (DL.getPointerSizeInBits() != 64 || DL.getIndexSizeInBits(0) != 64 ||
+      DL.isNonIntegralAddressSpace(0))
+    return PreservedAnalyses::all();
+  for (BasicBlock &BB : F)
+    if (BB.hasAddressTaken())
+      return PreservedAnalyses::all();
 
   auto Program = Lowerer(F).lower();
   if (!Program)

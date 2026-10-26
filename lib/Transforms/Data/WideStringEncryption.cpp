@@ -382,7 +382,8 @@ PreservedAnalyses WideStringEncryptionPass::run(Module &M,
   auto *Int8Ty = Type::getInt8Ty(M.getContext());
 
   for (auto *GV : WideTargets) {
-    if (opt::StringAggressive && !canProtectStringAtStartup(*GV))
+    if (opt::StringAggressive ? !canProtectStringAtStartup(*GV)
+                              : !hasOnlyGuardableUses(GV))
       continue;
     auto *CDA = cast<ConstantDataArray>(GV->getInitializer());
     unsigned N       = CDA->getNumElements();
@@ -409,11 +410,6 @@ PreservedAnalyses WideStringEncryptionPass::run(Module &M,
     GV->setConstant(false);
     GV->setInitializer(EncConst);
 
-    // Snapshot users BEFORE building the stub so that instructions inserted
-    // inside the decrypt stub (which also reference GV) are not processed
-    // by the lazy-guard loop below.
-    SmallVector<User *, 8> Users(GV->users());
-
     // 4.2.4: per-string flag
     GlobalVariable *FlagGV = nullptr;
     if (!opt::StringAggressive) {
@@ -431,30 +427,7 @@ PreservedAnalyses WideStringEncryptionPass::run(Module &M,
       continue;
     }
 
-    // Inject lazy guard before every instruction that uses this global.
-    for (auto *U : Users) {
-      auto *Inst = dyn_cast<Instruction>(U);
-      if (!Inst)
-        continue;
-      // PHI nodes cannot be split-points: skip them to avoid malformed IR.
-      if (isa<PHINode>(Inst))
-        continue;
-      LLVMContext &Ctx = M.getContext();
-      // Lazy guard: split block, check flag, call stub if 0, set flag.
-      BasicBlock *CheckBB  = Inst->getParent();
-      BasicBlock *MergeBB  = CheckBB->splitBasicBlock(Inst, "wlazy.merge");
-      BasicBlock *DecryptBB = BasicBlock::Create(Ctx, "wlazy.decrypt",
-                                                  Inst->getFunction(), MergeBB);
-      CheckBB->getTerminator()->eraseFromParent();
-      IRBuilder<> B(CheckBB);
-      Value *Flag   = B.CreateLoad(Int8Ty, FlagGV, "wflag");
-      Value *IsZero = B.CreateICmpEQ(Flag, ConstantInt::get(Int8Ty, 0));
-      B.CreateCondBr(IsZero, DecryptBB, MergeBB);
-      IRBuilder<> DB(DecryptBB);
-      DB.CreateCall(Stub);
-      DB.CreateStore(ConstantInt::get(Int8Ty, 1), FlagGV);
-      DB.CreateBr(MergeBB);
-    }
+    emitStringGuards(GV, FlagGV, Stub, "wlazy");
 
     Changed = true;
   }

@@ -260,49 +260,10 @@ PreservedAnalyses StringEncryptionPass::run(Module &M,
     ArrayRef<uint8_t> KeyRef(Key, KeyLen);
     auto *Stub = buildDecryptStub(M, EncGV, KeyRef, Suffix);
 
-    // Replace uses: inject lazy guard before each instruction that uses GV,
-    // then redirect the operand to EncGV.
-    SmallVector<User *, 8> Users(GV->users());
-    for (auto *U : Users) {
-      if (auto *CE = dyn_cast<ConstantExpr>(U)) {
-        SmallVector<User *, 8> CEUsers(CE->users());
-        for (auto *CU : CEUsers) {
-          auto *Inst = dyn_cast<Instruction>(CU);
-          if (!Inst || isa<PHINode>(Inst))
-            continue;
-
-          emitLazyGuard(Inst, FlagGV, Stub);
-
-          Value *Replacement = EncGV;
-          IRBuilder<> IB(Inst);
-          if (CE->getType() != EncGV->getType())
-            Replacement = IB.CreateBitCast(EncGV, CE->getType());
-          Inst->replaceUsesOfWith(CE, Replacement);
-        }
-        continue;
-      }
-      if (auto *Inst = dyn_cast<Instruction>(U)) {
-        // PHI nodes cannot be split-points: splitBasicBlock at a PHI leaves
-        // the PHI in the wrong block with stale predecessor lists.  Skip PHI
-        // uses here; they are reached from a non-PHI use site where the guard
-        // will be inserted, or they are covered by the ConstantExpr path above.
-        if (isa<PHINode>(Inst)) {
-          continue;
-        }
-
-        // 4.2.4: emit lazy guard — splits the block, so must come before
-        // any operand replacement.
-        emitLazyGuard(Inst, FlagGV, Stub);
-
-        for (unsigned I = 0; I < Inst->getNumOperands(); ++I) {
-          if (Inst->getOperand(I)->stripPointerCasts() == GV)
-            Inst->setOperand(I, EncGV);
-        }
-      }
-    }
-
-    if (GV->use_empty())
-      GV->eraseFromParent();
+    emitStringGuards(GV, FlagGV, Stub, "lazy");
+    // Replacing the base preserves every ConstantExpr GEP/cast and offset.
+    GV->replaceAllUsesWith(EncGV);
+    GV->eraseFromParent();
 
     Changed = true;
   }

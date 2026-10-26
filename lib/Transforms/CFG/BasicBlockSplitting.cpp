@@ -114,6 +114,10 @@ PreservedAnalyses BasicBlockSplittingPass::run(Function &F,
 
       if (It == Current->end() || It->isTerminator())
         break;
+      // A musttail call and its optional return bitcast must stay adjacent.
+      if (auto *Prev = dyn_cast_or_null<CallInst>(It->getPrevNode()))
+        if (Prev->isMustTailCall())
+          break;
 
       // SplitBlock inserts an unconditional branch from Current to the new BB.
       BasicBlock *NewBB = SplitBlock(Current, &*It);

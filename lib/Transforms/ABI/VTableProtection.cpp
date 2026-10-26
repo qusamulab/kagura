@@ -91,7 +91,8 @@ static bool obfuscateMSVCTypeName(GlobalVariable *GV, Module &M, PRNG &RNG) {
     if (!GV->hasInitializer()) return false;
     // TypeDescriptor is a struct; locate the name field (last element).
     auto *ST = dyn_cast<ConstantStruct>(GV->getInitializer());
-    if (!ST || ST->getNumOperands() < 3) return false;
+    if (!ST || ST->getNumOperands() != 3)
+      return false;
 
     auto *NameConst = dyn_cast<ConstantDataArray>(ST->getOperand(2));
     if (!NameConst || !NameConst->isString()) return false;

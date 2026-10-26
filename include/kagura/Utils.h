@@ -259,15 +259,21 @@ bool canProtectStringAtStartup(const llvm::GlobalVariable &GV);
 /// consumed. PHI users are excluded because the guard splits the block, which
 /// would invalidate the PHI's incoming edges.
 bool hasOnlyGuardableUses(const llvm::GlobalVariable *GV);
+/// Clear inferred memory effects on F and its direct callers after adding
+/// initialization writes; also clear corresponding call-site promises.
+void invalidateMemoryEffects(llvm::Function &F);
+/// Guard every instruction leaf of a previously validated constant-use graph.
+void emitStringGuards(llvm::GlobalVariable *GV, llvm::GlobalVariable *FlagGV,
+                      llvm::Function *DecryptStub, llvm::StringRef BBPrefix);
 
 // ---- Lazy-decrypt guard ----
 
 /// Emit, immediately before InsertBefore:
 ///
-///     if (!FlagGV) { DecryptStub(); FlagGV = 1; }
+///     initialize_once(FlagGV, DecryptStub);
 ///
-/// so an encrypted global is decrypted at most once, on first use, rather than
-/// on every path that reaches it. BBPrefix names the blocks the guard creates
+/// FlagGV starts at 0, is claimed as 1, and is published as 2 with
+/// acquire/release synchronization. BBPrefix names the blocks the guard creates
 /// ("lazy" for byte strings, "wlazy" for wide strings) purely so the IR stays
 /// readable when both passes run.
 void emitLazyGuard(llvm::Instruction *InsertBefore,

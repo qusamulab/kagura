@@ -64,3 +64,25 @@ define i32 @uses_aggregate({ i32, i32 } %s) {
   %r = extractvalue { i32, i32 } %s, 0
   ret i32 %r
 }
+
+; Volatile accesses cannot be replaced with the VM's memcpy-based accesses.
+; CHECK: load volatile i32
+define i32 @volatile_load(ptr %p) {
+ %x = load volatile i32, ptr %p
+ ret i32 %x
+}
+; CHECK: alloca i32
+define i32 @nonentry_alloca() {
+entry: br label %body
+body:
+ %p = alloca i32
+ store i32 42, ptr %p
+ %x = load i32, ptr %p
+ ret i32 %x
+}
+; CHECK: call i32 @twice()
+declare i32 @twice() returns_twice
+define i32 @calls_returns_twice() {
+ %x = call i32 @twice()
+ ret i32 %x
+}

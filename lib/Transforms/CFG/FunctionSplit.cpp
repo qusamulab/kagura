@@ -82,6 +82,8 @@ static bool isLeafSafeCall(const CallInst &CI) {
   if (CI.isInlineAsm()) return false;
   if (CI.isIndirectCall()) return false;
   if (CI.isMustTailCall()) return false;
+  if (CI.hasOperandBundles() || CI.hasFnAttr(Attribute::ReturnsTwice))
+    return false;
   Function *Callee = CI.getCalledFunction();
   if (!Callee) return false;
   if (Callee->isIntrinsic()) return false;
@@ -166,7 +168,7 @@ static bool hasUnrelocatableInsts(const BasicBlock &BB) {
     if (I.isEHPad())
       return true;
     for (const Use &U : I.operands())
-      if (U.get()->isSwiftError())
+      if (U.get()->isSwiftError() || U.get()->getType()->isTokenTy())
         return true;
   }
   return false;

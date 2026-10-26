@@ -17,13 +17,10 @@
 
 ; CHECK: define i32 @main
 ; CHECK-NOT: call i32 @puts(
-; CHECK: %[[FP:[a-z0-9._]+]] = load ptr, ptr @__kagura_thunk_table
+; CHECK: %[[FP:[a-z0-9._]+]] = call ptr @__kagura_resolve_0()
 ; CHECK: call i32 %[[FP]](ptr @msg)
 ; CHECK: ret i32
 
-; CHECK: define internal void @kagura_init_thunk_table
-; CHECK: call ptr @dlsym(ptr %{{.*}}, ptr @__kagura_sym_puts)
-; CHECK: store ptr %{{.*}}, ptr @__kagura_thunk_table
 
 declare i32 @puts(i8* nocapture) nounwind
 
@@ -34,3 +31,15 @@ entry:
   %r = call i32 @puts(i8* getelementptr inbounds ([6 x i8], [6 x i8]* @msg, i32 0, i32 0))
   ret i32 %r
 }
+
+; A regular call above makes puts eligible; this site has a different type.
+; CHECK-LABEL: define i64 @different_prototype(
+; CHECK: call i64 %{{.*}}(ptr %p)
+; CHECK: ret i64
+define i64 @different_prototype(ptr %p) {
+ %r = call i64 @puts(ptr %p)
+ ret i64 %r
+}
+; CHECK: define internal void @kagura_init_thunk_table
+; CHECK: call ptr @dlsym(ptr %{{.*}}, ptr @__kagura_sym_puts)
+; CHECK: store atomic ptr %{{.*}}, ptr @__kagura_thunk_table release
