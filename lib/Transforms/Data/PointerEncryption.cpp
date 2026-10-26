@@ -45,12 +45,15 @@ namespace kagura {
 static bool pointerAllocaEscapes(const AllocaInst *AI) {
   for (const auto *U : AI->users()) {
     if (const auto *LI = dyn_cast<LoadInst>(U)) {
-      (void)LI;
+      if (LI->getType() != AI->getAllocatedType() || !LI->isSimple())
+        return true;
       continue;
     }
     if (const auto *SI = dyn_cast<StoreInst>(U)) {
       // A store where AI is the VALUE operand is an escape.
-      if (SI->getValueOperand() == AI)
+      if (SI->getPointerOperand() != AI ||
+          SI->getValueOperand()->getType() != AI->getAllocatedType() ||
+          !SI->isSimple())
         return true;
       // A store where AI is the POINTER operand is normal.
       continue;
@@ -72,12 +75,7 @@ PreservedAnalyses PointerEncryptionPass::run(Function &F,
   // function, so non-EH allocas are safe to transform.
 
   LLVMContext &Ctx = F.getContext();
-  auto *PtrTy  = PointerType::getUnqual(Ctx);
   const DataLayout &DL = F.getParent()->getDataLayout();
-  unsigned PtrBits = DL.getPointerSizeInBits();
-  if (PtrBits == 0)
-    return PreservedAnalyses::all();
-  auto *IntPtrTy = Type::getIntNTy(Ctx, PtrBits);
 
   PRNG &RNG    = getModulePRNG(*F.getParent());
   bool Changed = false;
@@ -90,6 +88,10 @@ PreservedAnalyses PointerEncryptionPass::run(Function &F,
       if (!AI) continue;
       // Must allocate a pointer type
       if (!AI->getAllocatedType()->isPointerTy()) continue;
+      auto *StoredTy = cast<PointerType>(AI->getAllocatedType());
+      if (DL.isNonIntegralPointerType(StoredTy) ||
+          DL.getPointerTypeSizeInBits(StoredTy) > 64)
+        continue;
       // Must be a single element (not array alloca)
       if (AI->isArrayAllocation()) continue;
       // Address must not escape
@@ -99,6 +101,8 @@ PreservedAnalyses PointerEncryptionPass::run(Function &F,
   }
 
   for (auto *AI : Targets) {
+    unsigned PtrBits = DL.getPointerTypeSizeInBits(AI->getAllocatedType());
+    auto *IntPtrTy = Type::getIntNTy(Ctx, PtrBits);
     // Masked to PtrBits: on a 32-bit target — armv7, wasm32, i386, all
     // supported here — an unmasked 64-bit draw makes the APInt constructor
     // assert "Value is not an N-bit unsigned value", which is a compiler
@@ -107,7 +111,6 @@ PreservedAnalyses PointerEncryptionPass::run(Function &F,
 
     // The alloca remains a pointer-sized slot; loads/stores are rewritten to
     // use the target's intptr width.
-    AI->mutateType(PtrTy);          // alloca ptr type stays ptr (opaque)
     // We'll insert ptrtoint/xor/store and load/xor/inttoptr around uses.
 
     // Collect stores and loads before mutation.
@@ -132,9 +135,8 @@ PreservedAnalyses PointerEncryptionPass::run(Function &F,
       // Replace the store value with the encrypted integer.
       // We store the target's intptr width into the pointer-sized alloca slot.
       // Since the alloca stays opaque-ptr, just bitcast:
-      auto *NewStore = B.CreateStore(Encrypted,
-          B.CreateBitCast(AI, PointerType::getUnqual(Ctx)));
-      (void)NewStore;
+      auto *NewStore = B.CreateAlignedStore(Encrypted, AI, SI->getAlign());
+      NewStore->setDebugLoc(SI->getDebugLoc());
       SI->eraseFromParent();
       Changed = true;
     }
@@ -143,8 +145,9 @@ PreservedAnalyses PointerEncryptionPass::run(Function &F,
     for (auto *LI : Loads) {
       Type *OrigTy = LI->getType();
       IRBuilder<> B(LI);
-      auto *LoadInt  = B.CreateLoad(IntPtrTy,
-          B.CreateBitCast(AI, PointerType::getUnqual(Ctx)), "pe.raw");
+      auto *LoadInt =
+          B.CreateAlignedLoad(IntPtrTy, AI, LI->getAlign(), "pe.raw");
+      LoadInt->setDebugLoc(LI->getDebugLoc());
       Value *Decrypted = B.CreateXor(LoadInt, KeyConst, "pe.dec");
       Value *AsPtr     = B.CreateIntToPtr(Decrypted, OrigTy, "pe.ptr");
       LI->replaceAllUsesWith(AsPtr);

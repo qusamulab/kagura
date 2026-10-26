@@ -45,11 +45,18 @@ namespace kagura {
 /// into memory, or used in a PHI/Select.
 static bool allocaEscapes(const AllocaInst *AI) {
   for (const auto *U : AI->users()) {
-    if (isa<LoadInst>(U) || isa<StoreInst>(U)) {
-      // A store WHERE AI is the VALUE operand (not the pointer) is an escape.
-      if (const auto *SI = dyn_cast<StoreInst>(U))
-        if (SI->getValueOperand() == AI)
-          return true;
+    if (const auto *LI = dyn_cast<LoadInst>(U)) {
+      if (LI->getType() != AI->getAllocatedType() || !LI->isSimple())
+        return true;
+      continue;
+    }
+    if (const auto *SI = dyn_cast<StoreInst>(U)) {
+      // Opaque pointers permit accesses with a different type or width.
+      // Every access must participate in the same XOR representation.
+      if (SI->getPointerOperand() != AI ||
+          SI->getValueOperand()->getType() != AI->getAllocatedType() ||
+          !SI->isSimple())
+        return true;
       continue;
     }
     // Any other use (call, GEP, bitcast, PHI, select) = escape
@@ -144,6 +151,8 @@ PreservedAnalyses MemoryValueObfuscationPass::run(Function &F,
 
     // Decrypt: after each load, XOR the result with Key.
     for (LoadInst *LI : Loads) {
+      // The original range describes plaintext, not the encrypted load.
+      LI->setMetadata(LLVMContext::MD_range, nullptr);
       IRBuilder<> B(LI->getNextNode());
       Value *Enc   = LI;
       Value *Plain = B.CreateXor(Enc, KeyConst, LI->getName() + ".mvo");
