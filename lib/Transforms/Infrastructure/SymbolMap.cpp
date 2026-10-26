@@ -57,7 +57,7 @@ static std::string getOriginalFunctionName(const Function &F) {
 }
 
 // isKaguraSymbol() used to live here as its own two-prefix test, which is
-// how it drifted from the one in Utils.cpp. kagura::isKaguraSymbol is the
+// how it drifted from the shared helper. kagura::isKaguraSymbol is the
 // single definition; the local copy reported __kg_* and kagura.* symbols to
 // the user as if they were their own.
 

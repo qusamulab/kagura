@@ -1,12 +1,11 @@
 //===-- ConfigLoader.cpp - JSON policy file loader -------------------------===//
 //
-// 4.6.1: Reads a JSON/YAML policy file and applies per-module and
-// per-function protection settings, overriding command-line defaults.
+// Reads a JSON policy file and applies per-module and per-function settings.
 //
 // File format (JSON):
 //
 //   {
-//     "profile": "BALANCED",          // FAST | BALANCED | STRONG (4.6.2)
+//     "profile": "BALANCED",          // FAST | BALANCED | STRONG | CUSTOM
 //     "passes": {                      // override individual pass enables
 //       "fla": true,
 //       "bcf": false,
@@ -28,16 +27,12 @@
 //     "denylist":  ["test_*", "debug_*"]
 //   }
 //
-// 4.6.2: Profile presets
-//   FAST     — STR only; no CFG passes
-//   BALANCED — STR + BCF(20%) + BBR + BBS + GENC
-//   STRONG   — all passes at maximum settings
+// Profile presets are defined in ../Profiles.def.
 //
 // The loader is NOT a pass. loadConfigFileIfSpecified() is called from
 // Plugin.cpp while the pipeline is being constructed, because that is where
-// the opt:: flags are read to decide which passes to add. Running it as a pass
-// (as this file used to) is too late: by the time any pass executes, the
-// pipeline is already fixed, so the policy file had no effect at all.
+// the opt:: flags are read to decide which passes to add. By the time any
+// pass executes, the pipeline is already fixed.
 // ConfigLoaderPass remains only so `opt -passes=kagura-config` stays valid.
 //
 // Precedence: explicit command-line flag > flavor block > passes/tuning object
@@ -47,7 +42,7 @@
 // "denylist", "protect"): those *merge* with an explicit command-line list
 // rather than losing to it, because every entry in such a list is a symbol the
 // user asked to be treated specially and dropping either source silently
-// re-obfuscates it. See concatArray() below.
+// re-obfuscates it. See applyFilterList() below.
 //
 // Keys may be spelled with hyphens or underscores ("str-aes" == "str_aes");
 // see canonicalKey().
@@ -361,6 +356,48 @@ static bool applyStringObject(const json::Object &StringJson) {
   return StringPolicy.reportUnclaimed({"aggressive"});
 }
 
+/// Preserve the existing list semantics: retain an explicit CLI list, then
+/// append this policy layer. A flavor replaces the base list unless the CLI
+/// list was explicitly set; an absent or empty array leaves the flag alone.
+static void applyFilterList(const json::Object &Policy, StringRef Key,
+                            cl::opt<std::string> &Flag) {
+  const auto *Array = Policy.getArray(Key);
+  if (!Array)
+    return;
+
+  std::string Combined = setByUser(Flag) ? Flag.getValue() : std::string();
+  for (const auto &Value : *Array) {
+    if (auto Pattern = Value.getAsString()) {
+      if (!Combined.empty())
+        Combined += ',';
+      Combined += Pattern->str();
+    }
+  }
+  if (!Combined.empty())
+    Flag = Combined;
+}
+
+/// Apply one policy layer in precedence order. Both the base policy and the
+/// selected flavor use this path so their supported settings stay in sync.
+/// Returns true if any settings object contains an unknown key.
+static bool applyPolicySettings(const json::Object &Policy) {
+  if (auto Profile = Policy.getString("profile"))
+    applyProfile(*Profile);
+
+  bool UnknownKeys = false;
+  if (const auto *Passes = Policy.getObject("passes"))
+    UnknownKeys |= applyPassesObject(*Passes);
+  if (const auto *Tuning = Policy.getObject("tuning"))
+    UnknownKeys |= applyTuningObject(*Tuning);
+  if (const auto *Strings = Policy.getObject("string"))
+    UnknownKeys |= applyStringObject(*Strings);
+
+  applyFilterList(Policy, "allowlist", opt::AllowList);
+  applyFilterList(Policy, "denylist", opt::DenyList);
+  applyFilterList(Policy, "protect", opt::ProtectList);
+  return UnknownKeys;
+}
+
 // ---- Entry point ------------------------------------------------------------
 
 void loadConfigFileIfSpecified() {
@@ -397,21 +434,7 @@ void loadConfigFileIfSpecified() {
     return;
   }
 
-  // 4.6.9: Multi-flavor support — select a flavor-specific config block if
-  // the KAGURA_FLAVOR environment variable is set and the config file has a
-  // "flavors" object whose key matches the env var value.
-  //
-  // Example config:
-  //   {
-  //     "profile": "BALANCED",
-  //     "flavors": {
-  //       "staging":    { "profile": "FAST" },
-  //       "production": { "profile": "STRONG", "passes": { "vm": true } }
-  //     }
-  //   }
-  //
-  // When KAGURA_FLAVOR=production, the production flavor overrides the base
-  // config values.
+  // Select the flavor layer, which is applied after the base policy.
   const char *FlavorEnv = std::getenv("KAGURA_FLAVOR");
   const json::Object *FlavorRoot = nullptr;
   if (FlavorEnv && *FlavorEnv) {
@@ -419,70 +442,15 @@ void loadConfigFileIfSpecified() {
       FlavorRoot = FlavorsObj->getObject(FlavorEnv);
   }
 
-  bool UnknownKeys = false;
+  bool UnknownKeys = applyPolicySettings(*Root);
 
-  // 4.6.2: Apply base profile preset
-  if (auto Profile = Root->getString("profile"))
-    applyProfile(*Profile);
-
-  // 4.6.1: Apply base pass enables / disables
-  if (auto *PassesObj = Root->getObject("passes"))
-    UnknownKeys |= applyPassesObject(*PassesObj);
-
-  // 4.6.1: Apply base tuning parameters
-  if (auto *TuningObj = Root->getObject("tuning"))
-    UnknownKeys |= applyTuningObject(*TuningObj);
-
-  if (auto *StringObj = Root->getObject("string"))
-    UnknownKeys |= applyStringObject(*StringObj);
-
-  // 4.6.3/4.6.4: Load allowlist / denylist / protect from JSON.
-  //
-  // These MERGE with an explicit command-line list instead of replacing it.
-  // A JSON "denylist" used to clobber -kagura-deny=vendor_* outright, which
-  // both contradicted the precedence rule docs/configuration.md publishes
-  // ("an explicit -kagura-* flag wins") and re-obfuscated the very symbols the
-  // user had just excluded. Losing to the flag would be no better: every entry
-  // in a filter list is a symbol somebody deliberately singled out, so the only
-  // answer that cannot silently drop one is the union of both sources.
-  auto concatArray = [&](const json::Object *Obj, StringRef Key,
-                         cl::opt<std::string> &Flag) {
-    auto *Arr = Obj ? Obj->getArray(Key) : nullptr;
-    if (!Arr) return;
-    // Seed with the command-line value, if any, so it survives the assignment.
-    std::string Combined = setByUser(Flag) ? Flag.getValue() : std::string();
-    for (const auto &V : *Arr) {
-      if (auto S = V.getAsString()) {
-        if (!Combined.empty()) Combined += ',';
-        Combined += S->str();
-      }
-    }
-    if (!Combined.empty()) Flag = Combined;
-  };
-  concatArray(Root, "allowlist", opt::AllowList);
-  concatArray(Root, "denylist",  opt::DenyList);
-  concatArray(Root, "protect",   opt::ProtectList);
-
-  // 4.6.10: Audit log path from JSON. Scalar, so the ordinary precedence rule
-  // applies: -kagura-audit-out on the command line wins.
+  // audit_out is a base-policy setting. An explicit CLI value wins.
   if (!setByUser(opt::AuditLogOut))
     if (auto AuditOut = Root->getString("audit_out"))
       opt::AuditLogOut = AuditOut->str();
 
-  // 4.6.9: Apply flavor-specific overrides (after base config)
-  if (FlavorRoot) {
-    if (auto Profile = FlavorRoot->getString("profile"))
-      applyProfile(*Profile);
-    if (auto *PassesObj = FlavorRoot->getObject("passes"))
-      UnknownKeys |= applyPassesObject(*PassesObj);
-    if (auto *TuningObj = FlavorRoot->getObject("tuning"))
-      UnknownKeys |= applyTuningObject(*TuningObj);
-    if (auto *StringObj = FlavorRoot->getObject("string"))
-      UnknownKeys |= applyStringObject(*StringObj);
-    concatArray(FlavorRoot, "allowlist", opt::AllowList);
-    concatArray(FlavorRoot, "denylist",  opt::DenyList);
-    concatArray(FlavorRoot, "protect",   opt::ProtectList);
-  }
+  if (FlavorRoot)
+    UnknownKeys |= applyPolicySettings(*FlavorRoot);
 
   // A policy file that no longer means what it says is a silent downgrade of
   // the shipped binary, so let a build opt into failing on one.

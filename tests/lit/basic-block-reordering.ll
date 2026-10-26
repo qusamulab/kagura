@@ -14,7 +14,7 @@
 ; so the only thing that can make `diff` disagree is BBR having moved a block.
 ; Pinning the expected permutation instead would work, but it would have to be
 ; re-pinned every time an unrelated change shifts the PRNG draw sequence — as
-; the per-module reseeding in Utils.cpp just did.
+; the per-module reseeding in Support/Random.cpp just did.
 ;
 ; The nine shufflable blocks make "the shuffle happened to be the identity"
 ; a 1-in-9! event rather than the 1-in-24 it would be with three cases, so the
