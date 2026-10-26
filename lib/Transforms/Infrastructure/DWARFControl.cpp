@@ -129,22 +129,11 @@ static void obfuscateSubprogram(Function &F, DIFile *FakeFile,
   DISubprogram *SP = F.getSubprogram();
   if (!SP)
     return;
-  // We cannot mutate existing DISubprogram nodes in LLVM (they are immutable
-  // uniqued metadata).  Instead we use DIBuilder to replace the subprogram
-  // with an identical copy that references the fake file.  Because we are
-  // only renaming the file reference and the function name is kept, the
-  // resulting DWARF is still parseable.
-  DISubprogram *NewSP = Builder.createFunction(
-      FakeFile,             // scope  → fake file
-      SP->getName(),        // keep original function name
-      SP->getLinkageName(), // keep mangled name
-      FakeFile,             // file   → fake file
-      SP->getLine(),
-      SP->getType(),
-      SP->getScopeLine(),
-      SP->getFlags(),
-      SP->getSPFlags());
-  F.setSubprogram(NewSP);
+  // Function definitions have distinct subprogram nodes. Keep that node so
+  // lexical scopes, inlined locations, variables and the compile unit retain
+  // their identity; replacing only F's attachment leaves those users stale.
+  if (SP->isDistinct())
+    SP->replaceOperandWith(0, FakeFile);
 }
 
 // ---------------------------------------------------------------------------
