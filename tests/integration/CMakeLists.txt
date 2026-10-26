@@ -143,6 +143,12 @@ foreach(_string_mode xor aes combined)
 endforeach()
 
 if(NOT WIN32)
+  kagura_add_integration_test(ci_early_constructor
+    "kagura-ci"
+    call_indirection_ctor.c
+    "constructor ready\nmain ready\n"
+    "__kagura_resolve_"
+    $<TARGET_FILE:kagura_runtime>)
   foreach(_thread_mode xor aes split)
     if(_thread_mode STREQUAL "xor")
       set(_thread_pass "kagura-str")
