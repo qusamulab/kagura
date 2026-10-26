@@ -14,6 +14,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/Support/ModRef.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -478,16 +479,26 @@ Function *createCtorFunction(Module &M, const Twine &Name) {
 // ---- Global-variable use analysis ----
 
 bool hasOnlyGuardableUses(const GlobalVariable *GV) {
-  for (const User *U : GV->users()) {
-    if (isa<PHINode>(U))
-      return false;
-    if (isa<Instruction>(U))
+  if (!GV->hasLocalLinkage() || GV->isThreadLocal() || GV->hasSection() ||
+      GV->getAddressSpace() != 0 || GV->isExternallyInitialized() ||
+      GV->getName().starts_with("llvm.") || isKaguraSymbol(GV->getName()))
+    return false;
+  SmallVector<const User *, 16> Worklist(GV->users());
+  SmallPtrSet<const User *, 16> Seen;
+  while (!Worklist.empty()) {
+    const User *U = Worklist.pop_back_val();
+    if (!Seen.insert(U).second)
       continue;
+    if (const auto *I = dyn_cast<Instruction>(U)) {
+      // Funclet calls need bundles and EH pads cannot be split. Decline the
+      // whole string before mutation when a safe guard cannot be emitted.
+      if (isa<PHINode>(I) || I->isEHPad() ||
+          hasExceptionHandling(*I->getFunction()))
+        return false;
+      continue;
+    }
     if (isa<ConstantExpr>(U)) {
-      for (const User *Nested : U->users()) {
-        if (!isa<Instruction>(Nested) || isa<PHINode>(Nested))
-          return false;
-      }
+      Worklist.append(U->user_begin(), U->user_end());
       continue;
     }
     return false;
@@ -495,36 +506,92 @@ bool hasOnlyGuardableUses(const GlobalVariable *GV) {
   return true;
 }
 
+void emitStringGuards(GlobalVariable *GV, GlobalVariable *FlagGV,
+                      Function *DecryptStub, StringRef BBPrefix) {
+  // Snapshot all instruction leaves; skip the decryptor itself below.
+  SmallVector<User *, 16> Worklist(GV->users());
+  SmallPtrSet<User *, 16> Seen;
+  SmallVector<Instruction *, 16> Users;
+  while (!Worklist.empty()) {
+    User *U = Worklist.pop_back_val();
+    if (!Seen.insert(U).second)
+      continue;
+    if (auto *I = dyn_cast<Instruction>(U))
+      Users.push_back(I);
+    else if (isa<ConstantExpr>(U))
+      Worklist.append(U->user_begin(), U->user_end());
+  }
+  for (Instruction *I : Users)
+    if (I->getFunction() != DecryptStub)
+      emitLazyGuard(I, FlagGV, DecryptStub, BBPrefix);
+}
+
 // ---- Lazy-decrypt guard ----
+
+void invalidateMemoryEffects(Function &F) {
+  // Lazy initialization introduces writes into functions previously inferred
+  // memory(none) or readonly. Propagate to callers, including site attributes,
+  // so a later optimizer cannot delete the initialization as side-effect free.
+  SmallVector<Function *, 16> Worklist{&F};
+  SmallPtrSet<Function *, 16> Seen;
+  while (!Worklist.empty()) {
+    Function *Current = Worklist.pop_back_val();
+    if (!Seen.insert(Current).second)
+      continue;
+    Current->setMemoryEffects(MemoryEffects::unknown());
+    Current->removeFnAttr(Attribute::NoSync);
+    Current->removeFnAttr(Attribute::NoFree);
+    for (User *U : Current->users())
+      if (auto *CB = dyn_cast<CallBase>(U)) {
+        CB->setMemoryEffects(MemoryEffects::unknown());
+        CB->removeFnAttr(Attribute::NoSync);
+        CB->removeFnAttr(Attribute::NoFree);
+        Worklist.push_back(CB->getFunction());
+      }
+  }
+}
 
 void emitLazyGuard(Instruction *InsertBefore, GlobalVariable *FlagGV,
                    Function *DecryptStub, StringRef BBPrefix) {
   Function *ParentF = InsertBefore->getFunction();
+  invalidateMemoryEffects(*ParentF);
   LLVMContext &Ctx  = ParentF->getContext();
   auto *Int8Ty      = Type::getInt8Ty(Ctx);
 
-  // Split at InsertBefore so we get
-  //   CheckBB --(flag == 0)--> DecryptBB --> MergeBB
-  //           --(flag != 0)-------------> MergeBB
+  // Split before the use, then claim initialization or wait for its owner.
   BasicBlock *CheckBB = InsertBefore->getParent();
   BasicBlock *MergeBB =
       CheckBB->splitBasicBlock(InsertBefore, BBPrefix + ".merge");
+  BasicBlock *TryBB =
+      BasicBlock::Create(Ctx, BBPrefix + ".claim", ParentF, MergeBB);
   BasicBlock *DecryptBB =
       BasicBlock::Create(Ctx, BBPrefix + ".decrypt", ParentF, MergeBB);
+  BasicBlock *WaitBB =
+      BasicBlock::Create(Ctx, BBPrefix + ".wait", ParentF, MergeBB);
 
-  // splitBasicBlock leaves an unconditional branch behind; replace it with the
-  // flag test.
+  // States: 0 = uninitialized, 1 = owned by a decryptor, 2 = ready.
+  // Acquire/release publishes every decrypted byte to all consuming threads.
   CheckBB->getTerminator()->eraseFromParent();
-
   IRBuilder<> B(CheckBB);
-  Value *Flag   = B.CreateLoad(Int8Ty, FlagGV, BBPrefix + ".flag");
-  Value *IsZero = B.CreateICmpEQ(Flag, ConstantInt::get(Int8Ty, 0));
-  B.CreateCondBr(IsZero, DecryptBB, MergeBB);
+  auto *Flag = B.CreateLoad(Int8Ty, FlagGV, BBPrefix + ".flag");
+  Flag->setAtomic(AtomicOrdering::Acquire);
+  B.CreateCondBr(B.CreateICmpEQ(Flag, B.getInt8(2)), MergeBB, TryBB);
+
+  IRBuilder<> TB(TryBB);
+  auto *Claim = TB.CreateAtomicCmpXchg(FlagGV, TB.getInt8(0), TB.getInt8(1),
+                                       MaybeAlign(1), AtomicOrdering::Acquire,
+                                       AtomicOrdering::Monotonic);
+  TB.CreateCondBr(TB.CreateExtractValue(Claim, 1), DecryptBB, WaitBB);
 
   IRBuilder<> DB(DecryptBB);
   DB.CreateCall(DecryptStub);
-  DB.CreateStore(ConstantInt::get(Int8Ty, 1), FlagGV);
+  DB.CreateStore(DB.getInt8(2), FlagGV)->setAtomic(AtomicOrdering::Release);
   DB.CreateBr(MergeBB);
+
+  IRBuilder<> WB(WaitBB);
+  auto *Ready = WB.CreateLoad(Int8Ty, FlagGV, BBPrefix + ".ready");
+  Ready->setAtomic(AtomicOrdering::Acquire);
+  WB.CreateCondBr(WB.CreateICmpEQ(Ready, WB.getInt8(2)), MergeBB, WaitBB);
 }
 
 // ---- Call rewriting ----

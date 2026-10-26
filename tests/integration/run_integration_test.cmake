@@ -92,7 +92,7 @@ set(OBF_BIN      "${_TMPDIR}/${TEST_NAME}_obf")
 
 # ---- Compile baseline binary ------------------------------------------------
 execute_process(
-  COMMAND ${CLANG} -O2 ${SOURCE} -o ${BASELINE_BIN}
+  COMMAND ${CLANG} ${CLANG_FLAGS} -O2 ${SOURCE} -o ${BASELINE_BIN}
   RESULT_VARIABLE R ERROR_VARIABLE E
 )
 if(NOT R EQUAL 0)
@@ -129,7 +129,7 @@ endif()
 
 # ---- Emit IR for obfuscation ------------------------------------------------
 execute_process(
-  COMMAND ${CLANG} -O2 -emit-llvm -S -o ${BASELINE_IR} ${SOURCE}
+  COMMAND ${CLANG} ${CLANG_FLAGS} -O2 -emit-llvm -S -o ${BASELINE_IR} ${SOURCE}
   RESULT_VARIABLE R ERROR_VARIABLE E
 )
 if(NOT R EQUAL 0)
@@ -176,7 +176,7 @@ else()
   set(_LINK_EXTRA "")
 endif()
 execute_process(
-  COMMAND ${CLANG} ${OBF_IR} ${_LINK_EXTRA} -o ${OBF_BIN}
+  COMMAND ${CLANG} ${CLANG_FLAGS} ${OBF_IR} ${_LINK_EXTRA} -o ${OBF_BIN}
   RESULT_VARIABLE R ERROR_VARIABLE E
 )
 if(NOT R EQUAL 0)

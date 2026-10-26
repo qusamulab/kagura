@@ -32,6 +32,7 @@ define void @consumer() {
 ; CHECK-LABEL: define void @short_consumer()
 ; CHECK: call void @use(ptr @short)
 ; CHECK-NOT: __kagura_strsplit
+; CHECK: ret void
 define void @short_consumer() {
   call void @use(ptr @short)
   ret void
@@ -39,6 +40,6 @@ define void @short_consumer() {
 
 ; The init stub must have the flag-guard pattern.
 ; CHECK-LABEL: define internal void @__kagura_strsplit_0()
-; CHECK: load i8, ptr @kagura_str_flag_0
-; CHECK: icmp ne i8 {{.*}}, 0
-; CHECK: store i8 1, ptr @kagura_str_flag_0
+; CHECK: load atomic i8, ptr @kagura_str_flag_0 acquire
+; CHECK: cmpxchg ptr @kagura_str_flag_0, i8 0, i8 1 acquire monotonic
+; CHECK: store atomic i8 2, ptr @kagura_str_flag_0 release

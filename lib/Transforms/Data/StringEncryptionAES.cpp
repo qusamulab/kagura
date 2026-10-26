@@ -7,10 +7,9 @@
 //   3. Replaces uses of the original global with a call to a per-string
 //      decryption stub that calls kagura_aes128_ctr_decrypt() at runtime.
 //
-// 4.2.5: Short-lived decrypted buffer
-//   Each use site allocates a stack buffer and passes it to the per-string
-//   decrypt stub.  This avoids a shared mutable plaintext buffer and keeps the
-//   decrypted bytes scoped to the consuming function call frame.
+// Each literal has persistent backing storage. Decryption happens once, lazily
+// by default or at startup in aggressive mode, preserving pointer lifetime and
+// identity even when application code returns or captures a literal's address.
 //
 // Registered as: -kagura-str-aes
 //
@@ -126,32 +125,6 @@ static Function *buildAESDecryptStub(Module &M,
   return F;
 }
 
-static Value *emitAESDecryptCall(IRBuilder<> &B, Function *Stub,
-                                 ArrayType *OutArrTy) {
-  // The buffer goes in the entry block; only the call goes at the use site.
-  //
-  // Built where B points, a use inside a loop allocated a fresh frame slot on
-  // every iteration. Only entry-block allocas are static — LLVM gives those a
-  // fixed frame offset — so a non-entry one in a loop grows the stack until
-  // the function returns. A string decrypted inside a hot loop was a stack
-  // overflow waiting for enough iterations.
-  //
-  // Each use site still gets its own buffer, which is what the caller's
-  // comment about avoiding a shared static buffer is protecting. What changes
-  // is that a use in a loop now reuses one slot across iterations rather than
-  // getting a fresh one each time, so a decrypted pointer captured in one
-  // iteration and read in a later one would see the newer contents. That is
-  // the standard trade-off for hoisting, and the alternative is unbounded
-  // stack growth.
-  Function *F = B.GetInsertBlock()->getParent();
-  IRBuilder<> EB(&*F->getEntryBlock().getFirstInsertionPt());
-  auto *OutBuf = EB.CreateAlloca(OutArrTy, nullptr, "kagura.aesbuf");
-
-  auto *PtrTy = PointerType::getUnqual(B.getContext());
-  Value *OutPtr = B.CreateBitCast(OutBuf, PtrTy);
-  return B.CreateCall(Stub, {OutPtr}, "aesdec");
-}
-
 //===----------------------------------------------------------------------===//
 // Pass entry point
 //===----------------------------------------------------------------------===//
@@ -221,65 +194,28 @@ PreservedAnalyses StringEncryptionAESPass::run(Module &M,
                                            Len, BlobChecksum, Suffix,
                                            RuntimeDecrypt, BlobIntegrity);
 
+      // One persistent buffer per literal preserves its lifetime and identity,
+      // including pointers returned or captured by application code.
+      EncGV->setConstant(true);
+      auto *OutGV = new GlobalVariable(
+          M, OutArrTy, false, GlobalValue::PrivateLinkage,
+          ConstantAggregateZero::get(OutArrTy), "kagura_aesbuf_" + Suffix);
+      OutGV->setAlignment(GV->getAlign());
+      auto *Init = createCtorFunction(M, "kagura_aesinit_" + Suffix);
+      IRBuilder<> B(&Init->getEntryBlock());
+      B.CreateCall(Stub, {OutGV});
+      B.CreateRetVoid();
+
       if (opt::StringAggressive) {
-        // A permanent buffer preserves pointers stored in static tables or
-        // returned by functions. Only the ciphertext lives in the binary.
-        EncGV->setConstant(true);
-        auto *OutGV = new GlobalVariable(
-            M, OutArrTy, false, GlobalValue::PrivateLinkage,
-            ConstantAggregateZero::get(OutArrTy), "kagura_aesbuf_" + Suffix);
-        OutGV->setAlignment(GV->getAlign());
-        auto *Ctor = createCtorFunction(M, "kagura_aesinit_" + Suffix);
-        IRBuilder<> B(&Ctor->getEntryBlock());
-        B.CreateCall(Stub, {OutGV});
-        B.CreateRetVoid();
-        appendKaguraCtor(M, Ctor, CtorPriority::RuntimeString);
-        GV->replaceAllUsesWith(OutGV);
-        GV->eraseFromParent();
-        Changed = true;
-        continue;
+        appendKaguraCtor(M, Init, CtorPriority::RuntimeString);
+      } else {
+        auto *FlagGV = new GlobalVariable(
+            M, Int8Ty, false, GlobalValue::PrivateLinkage,
+            ConstantInt::get(Int8Ty, 0), "kagura_aesflag_" + Suffix);
+        emitStringGuards(GV, FlagGV, Init, "aeslazy");
       }
-
-      // Replace uses of the original global.
-      // Each use gets a per-call stack buffer.  This avoids the static shared
-      // buffer races and the incorrect immediate zeroing that broke stored or
-      // returned decrypted pointers.
-      SmallVector<User *, 8> Users(GV->users());
-      for (auto *U : Users) {
-        if (auto *CE = dyn_cast<ConstantExpr>(U)) {
-          SmallVector<User *, 4> CEUsers(CE->users());
-          for (auto *CU : CEUsers) {
-            if (auto *Inst = dyn_cast<Instruction>(CU)) {
-              IRBuilder<> IB(Inst);
-              Value *DecPtr = emitAESDecryptCall(IB, Stub, OutArrTy);
-              Value *Replacement = DecPtr;
-              if (CE->getType() != DecPtr->getType())
-                Replacement = IB.CreateBitCast(DecPtr, CE->getType());
-              Inst->replaceUsesOfWith(CE, Replacement);
-            }
-          }
-          continue;
-        }
-
-        if (auto *Inst = dyn_cast<Instruction>(U)) {
-          if (isa<PHINode>(Inst))
-            continue;
-          IRBuilder<> IB(Inst);
-          Value *DecPtr = emitAESDecryptCall(IB, Stub, OutArrTy);
-          for (unsigned I = 0; I < Inst->getNumOperands(); ++I) {
-            if (Inst->getOperand(I)->stripPointerCasts() == GV) {
-              Value *Replacement = DecPtr;
-              if (Inst->getOperand(I)->getType() != DecPtr->getType())
-                Replacement =
-                    IB.CreateBitCast(DecPtr, Inst->getOperand(I)->getType());
-              Inst->setOperand(I, Replacement);
-            }
-          }
-        }
-      }
-
-      if (GV->use_empty())
-        GV->eraseFromParent();
+      GV->replaceAllUsesWith(OutGV);
+      GV->eraseFromParent();
 
       Changed = true;
     }
