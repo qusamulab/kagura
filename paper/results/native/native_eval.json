@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "measured_at_utc": "2026-11-04T04:42:57.364691+00:00",
+  "revision": "cbab339d5486377e3c4fb722017bc72c854c4df2",
+  "worktree_status": "M paper/paper.tex\n M paper/refs.bib\n M scripts/eval/benchmarks/run_eval.sh\n?? paper/README.md\n?? paper/benchmarks/\n?? paper/evaluate.py\n?? paper/render_results.py\n?? paper/results/current_eval.json\n?? paper/results/current_table.tex\n?? paper/results/native/\n?? paper/results/runtime_probe.txt\n?? paper/results/validation.json\n?? scripts/eval/benchmarks/run_eval.py\n?? texput.log",
+  "host": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "target": "arm64-apple-darwin25.6.0",
+  "llvm_version": "21.1.8",
+  "tool_versions": {
+    "clang": "Homebrew clang version 21.1.8\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm@21/21.1.8/bin\nConfiguration file: /opt/homebrew/etc/clang/arm64-apple-darwin25.cfg",
+    "opt": "Homebrew LLVM version 21.1.8\n  Optimized build.\n  Default target: arm64-apple-darwin25.6.0\n  Host CPU: apple-m4",
+    "llc": "Homebrew LLVM version 21.1.8\n  Optimized build.\n  Default target: arm64-apple-darwin25.6.0\n  Host CPU: apple-m4\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv64     - 64-bit RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore",
+    "llvm-objdump": "Homebrew LLVM version 21.1.8\n  Optimized build.\n\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv64     - 64-bit RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore"
+  },
+  "plugin_sha256": "99d3bf34e3040a118d7b27ba37dcf04b540790453b36bda6595803f5cb91aaac",
+  "source_sha256": {
+    "scripts/eval/benchmarks/eval_functions.c": "57485983b1f7cb751a008e560d6642a7ef198aba14c9bf3fed3c3d31916c8cd8",
+    "scripts/eval/benchmarks/eval_main.c": "d31acd6af8842b7ed0a17c4289280e39bd6aed74db0402149089728c646856bd",
+    "scripts/eval/benchmarks/run_eval.py": "2b6485bef6c9981afdce8773633a2539b0ac0c1c36b437a53e15a103b9dea442",
+    "include/kagura/PassRegistry.def": "6f15bc2b432a6d1d84e83ecdb6221cc359e42adee40d0f93f36d75b2c363b5fa"
+  },
+  "seeds": [
+    1,
+    42,
+    12345
+  ],
+  "configurations": {
+    "plain": [],
+    "core": [
+      "str",
+      "fla",
+      "bcf",
+      "sub",
+      "co"
+    ],
+    "extended": [
+      "str",
+      "fla",
+      "bcf",
+      "sub",
+      "co",
+      "ibr",
+      "bbr",
+      "bbs",
+      "mvo"
+    ]
+  },
+  "tuning": {
+    "bcf_prob": 30,
+    "bcf_iter": 1,
+    "sub_iter": 1,
+    "bbs_min": 3,
+    "bbs_max_splits": 2
+  },
+  "pipeline": "clang O1 frontend; opt default<O1> with OptimizerLast plugin; llc -O=1; clang link",
+  "measurement_scope": {
+    "text_bytes": "linked executable text section including harness",
+    "target_instructions": "sum of T1-T4 disassembled machine instructions"
+  },
+  "runs": [
+    {
+      "config": "plain",
+      "seed": null,
+      "correctness": "Self-test: 7/7 passed",
+      "ir_repeat_identical": null,
+      "ir_sha256": "939e3453722dea3292be666b23382bfa2abdab56887a9660f87522851f93af86",
+      "binary_sha256": "aedc0a37259948ebd256c8871225758d91b8e50002088cbaa88b4f0b8548ae12",
+      "file_bytes": 33808,
+      "text_bytes": 856,
+      "function_instructions": {
+        "eval_verify_score": 21,
+        "eval_verify_item": 37,
+        "eval_check_movement": 24,
+        "eval_validate_token": 29
+      },
+      "target_instructions": 111
+    },
+    {
+      "config": "core",
+      "seed": 1,
+      "correctness": "Self-test: 7/7 passed",
+      "ir_repeat_identical": true,
+      "ir_sha256": "8c353a30447dad795a186c0105cdfb4430cfb3076f332cc526ca119f8aff064f",
+      "binary_sha256": "15c7c9e0d1030673f9cc7f3151bd01f1cba885e1c68943d2d33c822bd3bab19e",
+      "file_bytes": 33800,
+      "text_bytes": 1408,
+      "function_instructions": {
+        "eval_verify_score": 42,
+        "eval_verify_item": 84,
+        "eval_check_movement": 50,
+        "eval_validate_token": 73
+      },
+      "target_instructions": 249
+    },
+    {
+      "config": "core",
+      "seed": 42,
+      "correctness": "Self-test: 7/7 passed",
+      "ir_repeat_identical": true,
+      "ir_sha256": "61213a16b8424eef9c89b3538d38cf6ebad088dc65db787ae6beb5ba96e58767",
+      "binary_sha256": "6358c06d0a42af2d629f94b3beb636ad39ec2e02b7dda7afdb3bb9f4be0cb802",
+      "file_bytes": 33800,
+      "text_bytes": 1404,
+      "function_instructions": {
+        "eval_verify_score": 42,
+        "eval_verify_item": 83,
+        "eval_check_movement": 50,
+        "eval_validate_token": 73
+      },
+      "target_instructions": 248
+    },
+    {
+      "config": "core",
+      "seed": 12345,
+      "correctness": "Self-test: 7/7 passed",
+      "ir_repeat_identical": true,
+      "ir_sha256": "4cc27137eb837345e9d6f63716995d4c35223c50e86cda3ce52137bf446414ae",
+      "binary_sha256": "6ac83202c5b33c78eabdc887ff97f29e276ac195e0457ff45e225e70adbe2f36",
+      "file_bytes": 33800,
+      "text_bytes": 1420,
+      "function_instructions": {
+        "eval_verify_score": 42,
+        "eval_verify_item": 93,
+        "eval_check_movement": 45,
+        "eval_validate_token": 72
+      },
+      "target_instructions": 252
+    },
+    {
+      "config": "extended",
+      "seed": 1,
+      "correctness": "Self-test: 7/7 passed",
+      "ir_repeat_identical": true,
+      "ir_sha256": "42eab45baf270e5cb0958071d9f9fdbacfbf3c3965edf9a3051109a5063bf923",
+      "binary_sha256": "4ea2b5e82a9758ec7c8919e2efb5d35ab5913414a2543627526f9fba542a820d",
+      "file_bytes": 33800,
+      "text_bytes": 1600,
+      "function_instructions": {
+        "eval_verify_score": 46,
+        "eval_verify_item": 97,
+        "eval_check_movement": 54,
+        "eval_validate_token": 100
+      },
+      "target_instructions": 297
+    },
+    {
+      "config": "extended",
+      "seed": 42,
+      "correctness": "Self-test: 7/7 passed",
+      "ir_repeat_identical": true,
+      "ir_sha256": "fd5e2a181619c73bc24408d99393036d1e52aa579fade67720bdd941c719e5ef",
+      "binary_sha256": "cc0fc6a193c493046136b73beb54505ed7e578ecc697ff1431afcc74eaca0667",
+      "file_bytes": 33800,
+      "text_bytes": 1568,
+      "function_instructions": {
+        "eval_verify_score": 46,
+        "eval_verify_item": 98,
+        "eval_check_movement": 49,
+        "eval_validate_token": 96
+      },
+      "target_instructions": 289
+    },
+    {
+      "config": "extended",
+      "seed": 12345,
+      "correctness": "Self-test: 7/7 passed",
+      "ir_repeat_identical": true,
+      "ir_sha256": "71bfaed57273b44777dcde81a2271e76cef595e3320439c3165a38738bb767d8",
+      "binary_sha256": "5744dd88e93c74e60a019493390aae9e740374fdba94b08bae49cf9db6bdb313",
+      "file_bytes": 33808,
+      "text_bytes": 1620,
+      "function_instructions": {
+        "eval_verify_score": 46,
+        "eval_verify_item": 105,
+        "eval_check_movement": 54,
+        "eval_validate_token": 97
+      },
+      "target_instructions": 302
+    }
+  ]
+}

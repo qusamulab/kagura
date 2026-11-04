@@ -1,0 +1,1906 @@
+{
+  "schema_version": 1,
+  "source_commit": "cbab339d5486377e3c4fb722017bc72c854c4df2",
+  "host": {
+    "os": "26.7.1",
+    "cpu": "Apple M4 Pro",
+    "architecture": "arm64"
+  },
+  "clang_version": "Homebrew clang version 21.1.8\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /opt/homebrew/Cellar/llvm@21/21.1.8/bin\nConfiguration file: /opt/homebrew/etc/clang/arm64-apple-darwin25.cfg",
+  "plugin_sha256": "99d3bf34e3040a118d7b27ba37dcf04b540790453b36bda6595803f5cb91aaac",
+  "runtime_sha256": "4245262f3402026361f0d12655dbf4fb45394fb866d4d145fa94d8a9d99be804",
+  "input_sha256": {
+    "scripts/eval/benchmarks/eval_functions.c": "57485983b1f7cb751a008e560d6642a7ef198aba14c9bf3fed3c3d31916c8cd8",
+    "scripts/eval/benchmarks/eval_main.c": "d31acd6af8842b7ed0a17c4289280e39bd6aed74db0402149089728c646856bd",
+    "paper/benchmarks/differential_main.c": "1f81ec030e4d455e4a4b7f1a7e59f1a735314a3371f76623a10dbbe813506784",
+    "paper/evaluate.py": "54a5d44d5c20e033a79203094b31debb2612fb677739402597a27ab27c2be40a",
+    "include/kagura/PassRegistry.def": "6f15bc2b432a6d1d84e83ecdb6221cc359e42adee40d0f93f36d75b2c363b5fa",
+    "lib/Transforms/Profiles.def": "6d2fbc5df710bf2a31493d5ce46ac5182beb6311ebb7bb350aa8518763ae108f",
+    "integration/profiles/fast.json": "b733f17e5d4a9ae07046f2ad967982ad1e4b33c9b188edaef9d2712cf3862a1c",
+    "integration/profiles/balanced.json": "f4eb9d475196955bf060885637b3dd22a70b8b2b7d036a1b305a68c6690c52bb",
+    "integration/profiles/strong.json": "b4b0c9016948317919664be39d498507778b3ed8db90eb9f32cc6707541860d2"
+  },
+  "profile_settings": {
+    "FAST": {
+      "_generated": "DO NOT EDIT \u2014 generated from lib/Transforms/Profiles.def by scripts/ci/gen-profiles.py",
+      "profile": "FAST",
+      "passes": {
+        "str": true,
+        "sv": true,
+        "anti_debug": true,
+        "str_aes": false,
+        "wstr": false,
+        "fla": false,
+        "bcf": false,
+        "sub": false,
+        "co": false,
+        "ibr": false,
+        "lt": false,
+        "bbr": false,
+        "bbs": false,
+        "dci": false,
+        "genc": false,
+        "mvo": false,
+        "honey": false,
+        "tamper": false,
+        "fsplit": false,
+        "pe": false,
+        "vm": false
+      },
+      "tuning": {
+        "bcf_prob": 30,
+        "bcf_iter": 1,
+        "sub_iter": 1,
+        "dci_prob": 40
+      }
+    },
+    "BALANCED": {
+      "_generated": "DO NOT EDIT \u2014 generated from lib/Transforms/Profiles.def by scripts/ci/gen-profiles.py",
+      "profile": "BALANCED",
+      "passes": {
+        "str": true,
+        "wstr": true,
+        "bcf": true,
+        "bbr": true,
+        "bbs": true,
+        "dci": true,
+        "genc": true,
+        "mvo": true,
+        "sv": true,
+        "anti_debug": true,
+        "tamper": true,
+        "str_aes": false,
+        "fla": false,
+        "sub": false,
+        "co": false,
+        "ibr": false,
+        "lt": false,
+        "honey": false,
+        "fsplit": false,
+        "pe": false,
+        "vm": false
+      },
+      "tuning": {
+        "bcf_prob": 20,
+        "bcf_iter": 1,
+        "sub_iter": 1,
+        "dci_prob": 40
+      }
+    },
+    "STRONG": {
+      "_generated": "DO NOT EDIT \u2014 generated from lib/Transforms/Profiles.def by scripts/ci/gen-profiles.py",
+      "profile": "STRONG",
+      "passes": {
+        "str": true,
+        "str_aes": true,
+        "wstr": true,
+        "fla": true,
+        "bcf": true,
+        "sub": true,
+        "co": true,
+        "ibr": true,
+        "lt": true,
+        "bbr": true,
+        "bbs": true,
+        "dci": true,
+        "genc": true,
+        "mvo": true,
+        "sv": true,
+        "honey": true,
+        "anti_debug": true,
+        "tamper": true,
+        "fsplit": false,
+        "pe": false,
+        "vm": false
+      },
+      "tuning": {
+        "bcf_prob": 50,
+        "bcf_iter": 2,
+        "sub_iter": 2,
+        "dci_prob": 40
+      }
+    }
+  },
+  "method": {
+    "ir_optimization": "clang -O1 -Xclang -disable-llvm-passes; opt default<O1>",
+    "code_generation": "clang -O0 on optimized/transformed IR",
+    "driver": "compiled separately with clang -O1, no obfuscation",
+    "runtime_linkage": "shipped static runtime for protected profiles only",
+    "selftests": 7,
+    "differential_inputs_per_function": 1024,
+    "functions": 4,
+    "seeds": [
+      7,
+      42,
+      12345
+    ],
+    "reproducibility": "two separate opt processes per protected configuration",
+    "scope": "correctness, code size, IR repeatability; no security or timing metric",
+    "ablation": "each shipped profile also built with passes.anti_debug=false"
+  },
+  "observations": [
+    {
+      "profile": "plain",
+      "anti_debug_disabled": false,
+      "seed": null,
+      "ir_sha256": "58912fe44e996cdbe9e9556e8a7e22ce1261802300a414bc2e510118ab4a1c97",
+      "ir_repeated_identically": null,
+      "subject_text_bytes": 880,
+      "selftest_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "Self-test: 7/7 passed",
+      "executable_bytes": 33808,
+      "executable_text_bytes": 1292,
+      "differential_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": true,
+      "differential_passed": true,
+      "differential_return_values_matched": 4096,
+      "differential_output_sha256": "bd1316774ffcf71d2450a22432f641b18f409de3cb5173ec6567df6864c83858"
+    },
+    {
+      "profile": "FAST",
+      "anti_debug_disabled": false,
+      "seed": 7,
+      "ir_sha256": "4219a9705eb9907073fbb2aa9dea1a11b992d62bced0f37d4e159ff27e3827a4",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 1076,
+      "selftest_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "",
+      "executable_bytes": 36272,
+      "executable_text_bytes": 4172,
+      "differential_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": false,
+      "differential_passed": false,
+      "differential_return_values_matched": null,
+      "differential_output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "profile": "FAST",
+      "anti_debug_disabled": false,
+      "seed": 42,
+      "ir_sha256": "4219a9705eb9907073fbb2aa9dea1a11b992d62bced0f37d4e159ff27e3827a4",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 1076,
+      "selftest_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "",
+      "executable_bytes": 36272,
+      "executable_text_bytes": 4172,
+      "differential_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": false,
+      "differential_passed": false,
+      "differential_return_values_matched": null,
+      "differential_output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "profile": "FAST",
+      "anti_debug_disabled": false,
+      "seed": 12345,
+      "ir_sha256": "4219a9705eb9907073fbb2aa9dea1a11b992d62bced0f37d4e159ff27e3827a4",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 1076,
+      "selftest_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "",
+      "executable_bytes": 36272,
+      "executable_text_bytes": 4172,
+      "differential_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": false,
+      "differential_passed": false,
+      "differential_return_values_matched": null,
+      "differential_output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "profile": "BALANCED",
+      "anti_debug_disabled": false,
+      "seed": 7,
+      "ir_sha256": "ea8d28d9a3de177284b690279dec42c6d739e9801ecd4dd92e820cca64ddec50",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 1644,
+      "selftest_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "",
+      "executable_bytes": 37456,
+      "executable_text_bytes": 5972,
+      "differential_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": false,
+      "differential_passed": false,
+      "differential_return_values_matched": null,
+      "differential_output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "profile": "BALANCED",
+      "anti_debug_disabled": false,
+      "seed": 42,
+      "ir_sha256": "f7d3bbf4464697e25efc639749f93437e4fcd1b66a9bb597429b4556644097e0",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 1512,
+      "selftest_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "",
+      "executable_bytes": 37464,
+      "executable_text_bytes": 5840,
+      "differential_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": false,
+      "differential_passed": false,
+      "differential_return_values_matched": null,
+      "differential_output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "profile": "BALANCED",
+      "anti_debug_disabled": false,
+      "seed": 12345,
+      "ir_sha256": "9de1dfa51891e1e525caca7e92d9e0d4aa26262fbcb9f82022a5104aa135f5d2",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 1448,
+      "selftest_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "",
+      "executable_bytes": 37464,
+      "executable_text_bytes": 5776,
+      "differential_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": false,
+      "differential_passed": false,
+      "differential_return_values_matched": null,
+      "differential_output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "profile": "STRONG",
+      "anti_debug_disabled": false,
+      "seed": 7,
+      "ir_sha256": "126efd1c95619c82097941e922b73f5cdef5baa2c57d40eb4a90d380bbf94126",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 7284,
+      "selftest_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "",
+      "executable_bytes": 37504,
+      "executable_text_bytes": 11612,
+      "differential_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": false,
+      "differential_passed": false,
+      "differential_return_values_matched": null,
+      "differential_output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "profile": "STRONG",
+      "anti_debug_disabled": false,
+      "seed": 42,
+      "ir_sha256": "4d2ea23ba3a6499687772488931057eeabce58fd6029e96f8bee60ca491ea380",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 8472,
+      "selftest_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "",
+      "executable_bytes": 54016,
+      "executable_text_bytes": 12800,
+      "differential_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": false,
+      "differential_passed": false,
+      "differential_return_values_matched": null,
+      "differential_output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "profile": "STRONG",
+      "anti_debug_disabled": false,
+      "seed": 12345,
+      "ir_sha256": "6eb60c9c2fb1bac0e5b8172d9c71e7a55249d30133b83dc53d69d87a8eb76b10",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 7808,
+      "selftest_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "",
+      "executable_bytes": 37512,
+      "executable_text_bytes": 12136,
+      "differential_execution": {
+        "returncode": -6,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": false,
+      "differential_passed": false,
+      "differential_return_values_matched": null,
+      "differential_output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "profile": "FAST",
+      "anti_debug_disabled": true,
+      "seed": 7,
+      "ir_sha256": "c760aea62b0ba4cd873b1642978c1e65e9157cef7ea79d9da4f6841be9dab8d9",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 880,
+      "selftest_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "Self-test: 7/7 passed",
+      "executable_bytes": 33728,
+      "executable_text_bytes": 1292,
+      "differential_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": true,
+      "differential_passed": true,
+      "differential_return_values_matched": 4096,
+      "differential_output_sha256": "bd1316774ffcf71d2450a22432f641b18f409de3cb5173ec6567df6864c83858"
+    },
+    {
+      "profile": "FAST",
+      "anti_debug_disabled": true,
+      "seed": 42,
+      "ir_sha256": "c760aea62b0ba4cd873b1642978c1e65e9157cef7ea79d9da4f6841be9dab8d9",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 880,
+      "selftest_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "Self-test: 7/7 passed",
+      "executable_bytes": 33728,
+      "executable_text_bytes": 1292,
+      "differential_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": true,
+      "differential_passed": true,
+      "differential_return_values_matched": 4096,
+      "differential_output_sha256": "bd1316774ffcf71d2450a22432f641b18f409de3cb5173ec6567df6864c83858"
+    },
+    {
+      "profile": "FAST",
+      "anti_debug_disabled": true,
+      "seed": 12345,
+      "ir_sha256": "c760aea62b0ba4cd873b1642978c1e65e9157cef7ea79d9da4f6841be9dab8d9",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 880,
+      "selftest_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "Self-test: 7/7 passed",
+      "executable_bytes": 33728,
+      "executable_text_bytes": 1292,
+      "differential_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": true,
+      "differential_passed": true,
+      "differential_return_values_matched": 4096,
+      "differential_output_sha256": "bd1316774ffcf71d2450a22432f641b18f409de3cb5173ec6567df6864c83858"
+    },
+    {
+      "profile": "BALANCED",
+      "anti_debug_disabled": true,
+      "seed": 7,
+      "ir_sha256": "992298a198ea9c9b908b18703cb1fd86a8587d91095890665c375573567e6016",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 1448,
+      "selftest_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "Self-test: 7/7 passed",
+      "executable_bytes": 35584,
+      "executable_text_bytes": 3964,
+      "differential_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": true,
+      "differential_passed": true,
+      "differential_return_values_matched": 4096,
+      "differential_output_sha256": "bd1316774ffcf71d2450a22432f641b18f409de3cb5173ec6567df6864c83858"
+    },
+    {
+      "profile": "BALANCED",
+      "anti_debug_disabled": true,
+      "seed": 42,
+      "ir_sha256": "6c39bc819d2832a3475f4aea0dcb0f74728f73c7143e42c90ac5775c2d553401",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 1316,
+      "selftest_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "Self-test: 7/7 passed",
+      "executable_bytes": 35584,
+      "executable_text_bytes": 3832,
+      "differential_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": true,
+      "differential_passed": true,
+      "differential_return_values_matched": 4096,
+      "differential_output_sha256": "bd1316774ffcf71d2450a22432f641b18f409de3cb5173ec6567df6864c83858"
+    },
+    {
+      "profile": "BALANCED",
+      "anti_debug_disabled": true,
+      "seed": 12345,
+      "ir_sha256": "95d075def880d749786d5664e65cd6ee554a9ba767867f44361f85232b6313db",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 1252,
+      "selftest_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "Self-test: 7/7 passed",
+      "executable_bytes": 35592,
+      "executable_text_bytes": 3768,
+      "differential_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": true,
+      "differential_passed": true,
+      "differential_return_values_matched": 4096,
+      "differential_output_sha256": "bd1316774ffcf71d2450a22432f641b18f409de3cb5173ec6567df6864c83858"
+    },
+    {
+      "profile": "STRONG",
+      "anti_debug_disabled": true,
+      "seed": 7,
+      "ir_sha256": "7182f415289acdf0ef7d0d005ce49b37e64616ac37573e8fe2767f0c5536af95",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 7088,
+      "selftest_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "Self-test: 7/7 passed",
+      "executable_bytes": 35616,
+      "executable_text_bytes": 9604,
+      "differential_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": true,
+      "differential_passed": true,
+      "differential_return_values_matched": 4096,
+      "differential_output_sha256": "bd1316774ffcf71d2450a22432f641b18f409de3cb5173ec6567df6864c83858"
+    },
+    {
+      "profile": "STRONG",
+      "anti_debug_disabled": true,
+      "seed": 42,
+      "ir_sha256": "9887928d843c413e9a973e3bad8e0b513c5c834cb3fd870cc5b3e04eb920d169",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 8276,
+      "selftest_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "Self-test: 7/7 passed",
+      "executable_bytes": 35616,
+      "executable_text_bytes": 10792,
+      "differential_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": true,
+      "differential_passed": true,
+      "differential_return_values_matched": 4096,
+      "differential_output_sha256": "bd1316774ffcf71d2450a22432f641b18f409de3cb5173ec6567df6864c83858"
+    },
+    {
+      "profile": "STRONG",
+      "anti_debug_disabled": true,
+      "seed": 12345,
+      "ir_sha256": "062ec93e7931594b8e0ac62615574adeaa43d2271eac4a07e3e2900a1c6e9689",
+      "ir_repeated_identically": true,
+      "subject_text_bytes": 7612,
+      "selftest_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_output": "Self-test: 7/7 passed",
+      "executable_bytes": 35616,
+      "executable_text_bytes": 10128,
+      "differential_execution": {
+        "returncode": 0,
+        "stderr": "",
+        "timed_out": false
+      },
+      "selftest_passed": true,
+      "differential_passed": true,
+      "differential_return_values_matched": 4096,
+      "differential_output_sha256": "bd1316774ffcf71d2450a22432f641b18f409de3cb5173ec6567df6864c83858"
+    }
+  ],
+  "baseline_accept_counts": [
+    456,
+    332,
+    480,
+    0
+  ],
+  "commands": [
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "sw_vers",
+      "-productVersion"
+    ],
+    [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "--version"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O1",
+      "-Xclang",
+      "-disable-llvm-passes",
+      "-S",
+      "-emit-llvm",
+      "/Users/yoshiki.kusama/Personal/kagura/scripts/eval/benchmarks/eval_functions.c",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O1",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/scripts/eval/benchmarks/eval_main.c",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O1",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/paper/benchmarks/differential_main.c",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/plain-None.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/plain-None.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/plain-None.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/plain-None.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/plain-None.o",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/plain-None-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/plain-None-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/plain-None-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/plain-None.o",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/plain-None-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/plain-None-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/fast.json",
+      "-kagura-config-strict",
+      "-kagura-seed=7",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-7.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/fast.json",
+      "-kagura-config-strict",
+      "-kagura-seed=7",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-7.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-7.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-7.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-7.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-7.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-7-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-7-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-7-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-7.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-7-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-7-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/fast.json",
+      "-kagura-config-strict",
+      "-kagura-seed=42",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-42.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/fast.json",
+      "-kagura-config-strict",
+      "-kagura-seed=42",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-42.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-42.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-42.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-42.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-42.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-42-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-42-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-42-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-42.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-42-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-42-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/fast.json",
+      "-kagura-config-strict",
+      "-kagura-seed=12345",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-12345.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/fast.json",
+      "-kagura-config-strict",
+      "-kagura-seed=12345",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-12345.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-12345.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-12345.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-12345.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-12345.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-12345-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-12345-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-12345-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-12345.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-12345-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-12345-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/balanced.json",
+      "-kagura-config-strict",
+      "-kagura-seed=7",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-7.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/balanced.json",
+      "-kagura-config-strict",
+      "-kagura-seed=7",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-7.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-7.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-7.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-7.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-7.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-7-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-7-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-7-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-7.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-7-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-7-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/balanced.json",
+      "-kagura-config-strict",
+      "-kagura-seed=42",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-42.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/balanced.json",
+      "-kagura-config-strict",
+      "-kagura-seed=42",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-42.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-42.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-42.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-42.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-42.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-42-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-42-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-42-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-42.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-42-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-42-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/balanced.json",
+      "-kagura-config-strict",
+      "-kagura-seed=12345",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-12345.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/balanced.json",
+      "-kagura-config-strict",
+      "-kagura-seed=12345",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-12345.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-12345.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-12345.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-12345.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-12345.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-12345-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-12345-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-12345-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-12345.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-12345-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-12345-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/strong.json",
+      "-kagura-config-strict",
+      "-kagura-seed=7",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-7.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/strong.json",
+      "-kagura-config-strict",
+      "-kagura-seed=7",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-7.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-7.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-7.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-7.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-7.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-7-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-7-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-7-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-7.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-7-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-7-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/strong.json",
+      "-kagura-config-strict",
+      "-kagura-seed=42",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-42.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/strong.json",
+      "-kagura-config-strict",
+      "-kagura-seed=42",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-42.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-42.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-42.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-42.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-42.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-42-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-42-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-42-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-42.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-42-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-42-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/strong.json",
+      "-kagura-config-strict",
+      "-kagura-seed=12345",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-12345.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/integration/profiles/strong.json",
+      "-kagura-config-strict",
+      "-kagura-seed=12345",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-12345.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-12345.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-12345.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-12345.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-12345.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-12345-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-12345-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-12345-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-12345.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-12345-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-12345-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=7",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-7.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=7",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-7.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-7.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-7.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-7.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-7.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-7-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-7-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-7-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-7.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-7-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-7-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=42",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-42.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=42",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-42.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-42.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-42.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-42.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-42.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-42-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-42-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-42-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-42.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-42-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-42-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=12345",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-12345.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=12345",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-12345.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-12345.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-12345.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-12345.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-12345.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-12345-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-12345-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-12345-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-12345.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-12345-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/fast-no-antidebug-12345-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=7",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-7.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=7",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-7.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-7.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-7.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-7.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-7.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-7-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-7-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-7-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-7.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-7-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-7-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=42",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-42.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=42",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-42.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-42.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-42.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-42.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-42.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-42-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-42-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-42-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-42.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-42-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-42-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=12345",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-12345.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=12345",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-12345.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-12345.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-12345.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-12345.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-12345.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-12345-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-12345-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-12345-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-12345.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-12345-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/balanced-no-antidebug-12345-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=7",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-7.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=7",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-7.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-7.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-7.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-7.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-7.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-7-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-7-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-7-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-7.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-7-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-7-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=42",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-42.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=42",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-42.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-42.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-42.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-42.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-42.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-42-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-42-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-42-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-42.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-42-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-42-differential"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=12345",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-12345.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/opt",
+      "-load-pass-plugin=/Users/yoshiki.kusama/Personal/kagura/build_paper/lib/Transforms/KaguraObfuscator.dylib",
+      "-kagura-config=/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug.json",
+      "-kagura-config-strict",
+      "-kagura-seed=12345",
+      "-passes=default<O1>",
+      "-verify-each",
+      "-S",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/subjects.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-12345.repeat.ll"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "-O0",
+      "-c",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-12345.ll",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-12345.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-12345.o"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/selftest.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-12345.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-12345-selftest"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-12345-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/llvm-size",
+      "-A",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-12345-selftest"
+    ],
+    [
+      "/opt/homebrew/Cellar/llvm@21/21.1.8/bin/clang",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/differential.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-12345.o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/runtime/libkagura_runtime.a",
+      "-o",
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-12345-differential"
+    ],
+    [
+      "/Users/yoshiki.kusama/Personal/kagura/build_paper/paper-eval/strong-no-antidebug-12345-differential"
+    ]
+  ]
+}

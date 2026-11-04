@@ -1,0 +1,5 @@
+# Keep reports and generated tables; rebuild local binaries and logs.
+*
+!.gitignore
+!native_eval.json
+!native_tables.tex
