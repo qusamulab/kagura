@@ -25,7 +25,7 @@
 
 ## Checklist for new passes
 
-See [Adding a Pass](../CONTRIBUTING.md#adding-a-pass) — the flag, the pipeline
+See [Adding a Pass](../docs/project/CONTRIBUTING.md#adding-a-pass) — the flag, the pipeline
 entry, the JSON policy key and the link smoke test are all generated from one
 registry row, so there is nothing to hand-register.
 

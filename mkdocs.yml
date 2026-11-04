@@ -177,4 +177,7 @@ nav:
   - Project:
       - Testing & Evaluation: testing.md
       - Architecture: architecture.md
-      - Contributing: contributing.md
+      - Overview: project/index.md
+      - Contributing: project/CONTRIBUTING.md
+      - Roadmap: project/TODO.md
+      - Changelog: project/CHANGELOG.md

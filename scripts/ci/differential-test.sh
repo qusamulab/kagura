@@ -49,7 +49,7 @@ SEED="${KAGURA_SEED:-42}"
 # reject the whole pipeline, so every subject reported "SKIP (opt error)" — and
 # the script still exited 0, because only FAIL_COUNT gated the exit status. This
 # suite has therefore never actually compared a single binary, while
-# CONTRIBUTING.md and the PR template both ask contributors to run it and
+# docs/project/CONTRIBUTING.md and the PR template both ask contributors to run it and
 # confirm no regressions.
 DEFAULT_PASSES="kagura-str,kagura-genc,kagura-fsplit,kagura-sv,function(kagura-co,kagura-bcf,kagura-sub,kagura-ibr,kagura-lt,kagura-bbr,kagura-bbs,kagura-dci,kagura-mvo)"
 PASSES="${KAGURA_PASSES:-${DEFAULT_PASSES}}"

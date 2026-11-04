@@ -5,7 +5,7 @@
 > `-kagura-*` フラグが *"Unknown command line argument"* で拒否されます。同梱の
 > `kagura-opt`、または `opt --load-pass-plugin=<plugin> -kagura-… -passes=…`
 > を使ってください（どちらも全対応バージョンで動作します）。
-> [既知の問題](https://github.com/qusamulab/kagura/blob/main/CHANGELOG.md#known-issues)。
+> [既知の問題](https://github.com/qusamulab/kagura/blob/main/docs/project/CHANGELOG.md#known-issues)。
 
 
 > **モバイル・デスクトップ・WebAssembly 向けの LLVM ベース難読化・耐タンパーツールキット。**

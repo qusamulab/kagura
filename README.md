@@ -66,7 +66,7 @@ Built on the **New Pass Manager** (LLVM 17+). Loaded as a pass plugin via `-fpas
 > flag is rejected with *"Unknown command line argument"*. Use the shipped
 > `kagura-opt`, or `opt --load-pass-plugin=<plugin> -kagura-… -passes=…`, both
 > of which work on all supported versions. See
-> [Known issues](https://github.com/qusamulab/kagura/blob/main/CHANGELOG.md#known-issues).
+> [Known issues](https://github.com/qusamulab/kagura/blob/main/docs/project/CHANGELOG.md#known-issues).
 
 ```bash
 clang -fpass-plugin=KaguraObfuscator.dylib \
@@ -100,6 +100,12 @@ If you use Kagura in your research or build on it, please cite the [paper](https
 - 💬 **[Discussions](https://github.com/qusamulab/kagura/discussions)** — questions, ideas, share your use case
 - 🐞 **[Issues](https://github.com/qusamulab/kagura/issues)** — bugs and feature requests (templates provided)
 - 📚 **[Documentation](https://qusamulab.github.io/kagura)** — passes, configuration, integration, testing
+
+## Development
+
+See the [contributor guide](docs/project/CONTRIBUTING.md),
+[remaining work](docs/project/TODO.md), [changelog](docs/project/CHANGELOG.md),
+and [agent development instructions](AGENTS.md).
 
 ## License
 
