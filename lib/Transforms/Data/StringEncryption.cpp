@@ -51,7 +51,8 @@ namespace kagura {
 // The generated function signature: void kagura_decrypt_<suffix>(void)
 // It is marked NoInline so other passes can still obfuscate it independently.
 static Function *buildDecryptStub(Module &M, GlobalVariable *Encrypted,
-                                   ArrayRef<uint8_t> Key, StringRef Suffix) {
+                                   ArrayRef<uint8_t> Key, StringRef Suffix,
+                                   bool Scoped = false) {
   LLVMContext &Ctx = M.getContext();
   IRBuilder<> B(Ctx);
 
@@ -61,7 +62,9 @@ static Function *buildDecryptStub(Module &M, GlobalVariable *Encrypted,
   auto *Int64Ty = Type::getInt64Ty(Ctx);
 
   // void kagura_decrypt_<suffix>()
-  auto *FTy = FunctionType::get(VoidTy, false);
+  auto *FTy = Scoped
+      ? FunctionType::get(VoidTy, {PointerType::getUnqual(Ctx)}, false)
+      : FunctionType::get(VoidTy, false);
   auto *F   = Function::Create(FTy, Function::InternalLinkage,
                                "kagura_decrypt_" + Suffix, M);
   F->addFnAttr(Attribute::NoInline);
@@ -122,7 +125,9 @@ static Function *buildDecryptStub(Module &M, GlobalVariable *Encrypted,
 
   // XOR and store back
   auto *Plain = B.CreateXor(EByte, KByte, "plain");
-  B.CreateStore(Plain, EPtr);
+  Value *OutPtr = Scoped
+      ? B.CreateInBoundsGEP(Int8Ty, F->getArg(0), Idx) : EPtr;
+  B.CreateStore(Plain, OutPtr);
 
   // idx++; br loop_header
   auto *Next = B.CreateAdd(Idx, ConstantInt::get(Int64Ty, 1), "next");
@@ -202,7 +207,8 @@ PreservedAnalyses StringEncryptionPass::run(Module &M,
   auto *Int8Ty = Type::getInt8Ty(Ctx);
 
   for (auto *GV : Strings) {
-    if (!opt::StringAggressive && !hasOnlyGuardableUses(GV))
+    if (!(opt::StringScoped && hasOnlyScopedStringUses(GV)) &&
+        !opt::StringAggressive && !hasOnlyGuardableUses(GV))
       continue;
 
     auto *CDA = dyn_cast<ConstantDataArray>(GV->getInitializer());
@@ -236,6 +242,17 @@ PreservedAnalyses StringEncryptionPass::run(Module &M,
                                      GlobalValue::PrivateLinkage, EncConst,
                                      "kagura_enc_" + Suffix);
     EncGV->setAlignment(GV->getAlign());
+
+    if (opt::StringScoped && hasOnlyScopedStringUses(GV)) {
+      EncGV->setConstant(true);
+      auto *Stub = buildDecryptStub(M, EncGV, ArrayRef<uint8_t>(Key, KeyLen),
+                                    Suffix, /*Scoped=*/true);
+      emitScopedStringUses(GV, Stub);
+      GV->removeDeadConstantUsers();
+      GV->eraseFromParent();
+      Changed = true;
+      continue;
+    }
 
     // Preserve static aggregate pointers and PHI operands by redirecting all
     // uses to stable writable storage, decrypted before application ctors.

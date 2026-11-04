@@ -56,3 +56,11 @@ JSON とログは 16 MiB、バイナリは各 256 MiB までです。壊れた�
 
 インストールと開発の詳細は [英語版](mcp.md) またはリポジトリの
 [README](https://github.com/qusamulab/kagura/blob/main/mcp/README.md) を参照してください。
+
+`generate_config` の `scoped_strings=true` は `"string": {"scoped": true}` を生成します。
+`aggressive_strings` と併用でき、`str` または `str_aes` も有効にする必要があります。
+readonly・非キャプチャ・非例外の条件に合う呼び出しだけ一時領域を消去し、
+対象外は永続領域を維持します。CLI では `config-gen --scoped-strings` を使います。
+`doctor` の `compiler_driver_ready` はドライバの存在と clang/kagura-opt の
+対応する同一LLVMメジャーを確認します。ソースのビルドとネイティブ設定検証は
+[コンパイラドライバ](../getting-started/compiler-driver.ja.md)を使ってください。

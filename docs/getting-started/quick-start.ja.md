@@ -1,11 +1,7 @@
 # クイックスタート
 
-> **`-mllvm` 経由のフラグは LLVM 22 が必要です。** LLVM 17–21 では、clang が
-> `-fpass-plugin` でプラグインを読み込む前に `-mllvm` を解析するため、すべての
-> `-kagura-*` フラグが *"Unknown command line argument"* で拒否されます。同梱の
-> `kagura-opt`、または `opt --load-pass-plugin=<plugin> -kagura-… -passes=…`
-> を使ってください（どちらも全対応バージョンで動作します）。
-> [既知の問題](https://github.com/qusamulab/kagura/blob/main/docs/project/CHANGELOG.md#known-issues)。
+[コンパイラドライバ](compiler-driver.ja.md) は upstream LLVM 17–22 と Python 3.9 以上で使えます。
+clang の `-fpass-plugin -mllvm` を直接使う場合は LLVM 22 が必要です。
 
 
 5分以内に Kagura で保護されたバイナリを作ります。
@@ -26,12 +22,13 @@
 
     各アーカイブの中身:
 
-    - `plugin/KaguraObfuscator.{dylib,so}`
-    - `runtime/libkagura_runtime.a`
+    - `bin/kagura`, `bin/kagura-opt`
+    - `lib/KaguraObfuscator.{dylib,so}`
+    - `lib/libkagura_runtime.a`
     - `include/kagura/game_protect.h`, `include/kagura/VM.h`,
-      `include/kagura/VMOpcodes.def`
+      `include/kagura/VMOpcodes.def`, `include/kagura/runtime.h`
 
-    インストールされるヘッダはこの 3 つだけです
+    インストールされるヘッダはこの 4 つだけです
     (`cmake/KaguraInstall.cmake`)。パスプラグイン側のヘッダ — `Options.h`,
     `Passes.h`, `Passes/`, `Utils.h` — は意図的に同梱していません。バイナリ
     リリースの利用者が持っていない LLVM のヘッダを include するためです。
@@ -43,11 +40,8 @@
 ## 2. 単一ファイルを難読化
 
 ```bash
-clang -fpass-plugin=path/to/KaguraObfuscator.dylib \
-      -mllvm -kagura-str \
-      -mllvm -kagura-fla \
-      -mllvm -kagura-bcf \
-      -mllvm -kagura-bcf-prob=50 \
+path/to/bin/kagura --clang=/path/to/llvm/bin/clang \
+      -kagura-str -kagura-fla -kagura-bcf -kagura-bcf-prob=50 \
       -O1 your_file.c -o your_file
 ```
 
@@ -73,9 +67,8 @@ clang -fpass-plugin=path/to/KaguraObfuscator.dylib \
 ```
 
 ```bash
-clang -fpass-plugin=path/to/KaguraObfuscator.dylib \
-      -mllvm -kagura-config=kagura.json \
-      -O1 your_file.c -o your_file
+path/to/bin/kagura --clang=/path/to/llvm/bin/clang \
+      -kagura-config=kagura.json -O1 your_file.c -o your_file
 ```
 
 DSL の全仕様は [設定](../configuration.md) を参照。

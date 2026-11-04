@@ -500,6 +500,9 @@ int  kagura_check_injected_dlls(void);
 void kagura_injected_dlls_check(void);
 void kagura_check_windows_debugger(void);
 
+/* symbol_resolution.c: used by CallIndirection on Windows. */
+void *kagura_windows_resolve_symbol(const char *name, void *import_address);
+
 /* integrity.c */
 int  kagura_pe_checksum_valid(void);
 void kagura_pe_integrity_check(void);

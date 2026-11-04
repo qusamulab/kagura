@@ -39,6 +39,28 @@ else()
   set(KAGURA_PASS_DRIVER -DPLUGIN=$<TARGET_FILE:KaguraObfuscator>)
 endif()
 
+# Driver tests compile and execute real programs in both plugin linkage modes.
+if(KAGURA_BITCODE_TOOLS)
+  find_package(Python3 COMPONENTS Interpreter REQUIRED)
+  if(WIN32)
+    set(KAGURA_DRIVER_SCRIPT ${CMAKE_BINARY_DIR}/bin/kagura.py)
+  else()
+    set(KAGURA_DRIVER_SCRIPT ${CMAKE_BINARY_DIR}/bin/kagura)
+  endif()
+  add_test(NAME compiler-driver
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tooling/test_driver.py
+      --driver ${KAGURA_DRIVER_SCRIPT}
+      --clang ${LLVM_BIN}/clang
+      --kagura-opt $<TARGET_FILE:kagura-opt>
+      --runtime $<TARGET_FILE:kagura_runtime> -v)
+endif()
+
+if(WIN32)
+  add_executable(kagura_windows_checks runtime/windows_checks.c)
+  target_link_libraries(kagura_windows_checks PRIVATE kagura_runtime)
+  add_test(NAME runtime-windows-checks COMMAND kagura_windows_checks)
+endif()
+
 # ── kagura-opt CLI smoke tests (static builds only) ───────────────────────────
 #
 # These cover something no other test does: kagura-opt's own `-kagura-<flag>`
@@ -173,21 +195,6 @@ else()
   set(KAGURA_LINK_SYSLIBS "")
 endif()
 
-# Passes whose emitted runtime calls have no Windows implementation.
-#
-# runtime/CMakeLists.txt documents the anti-debug half of this: AntiDebug.cpp
-# emits six kagura_check_* symbols that live in POSIX-only translation units,
-# and giving Windows real implementations is a design question rather than a
-# build-system one. CallIndirection is the same shape — it emits
-# kagura_rtld_default_handle, and the thunk resolution underneath is dlsym.
-#
-# Registered as WILL_FAIL rather than skipped, deliberately. A skip is how
-# these stayed invisible: the only Windows ctest run registered four tests
-# until this file stopped returning early. WILL_FAIL keeps them running, and
-# turns red the moment somebody implements the missing side — at which point
-# the entry below is what needs deleting.
-set(KAGURA_WIN32_LINK_GAPS kagura-anti-debug kagura-ci)
-
 # Function-level passes must be wrapped in function(...) for opt; module-level
 # passes are named directly. The registry already records which is which, so
 # read the macro name alongside the CLI name rather than maintaining a list.
@@ -217,9 +224,6 @@ foreach(_row IN LISTS KAGURA_PASS_ROWS)
         -P ${CMAKE_CURRENT_SOURCE_DIR}/run_link_test.cmake
     )
     set_tests_properties(link_${_cli} PROPERTIES LABELS link)
-    if(WIN32 AND _cli IN_LIST KAGURA_WIN32_LINK_GAPS)
-      set_tests_properties(link_${_cli} PROPERTIES WILL_FAIL TRUE)
-    endif()
   endif()
 endforeach()
 

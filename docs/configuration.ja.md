@@ -90,6 +90,28 @@ CLI では文字列パスのフラグと併せて `-kagura-string-aggressive` �
 
 自動パイプラインでは `str` が `str_aes` より先に実行されます。両方を有効化しても、先に XOR 暗号化された文字列が AES に置き換わるわけではありません。対象のナロー文字列を AES で保護するには、プロファイル利用時も `"str": false` と `"str_aes": true` を指定してください。
 
+## 平文の保持時間を制限する
+
+`str` または `str_aes` と併せて `-kagura-string-scoped`、または
+`"string": {"scoped": true}` を指定します。パス自体を有効にする設定ではなく、
+`wstr` は対象外です。対象リテラルを呼び出し直前にスタックへ復号し、戻った直後に
+volatile なゼロクリアで消去します。呼び出し箇所・再帰呼び出し・スレッドごとに
+独立した領域を使います。
+
+対象は 4096 バイト以下の private/internal な `unnamed_addr` 文字列
+（Windows の dso-local `linkonce_odr` プール文字列も含む）で、すべての
+利用が直接の呼び出し引数（定数 GEP・cast を含む）である必要があります。
+引数は readonly かつ非キャプチャ、呼び出しは非例外であることが必要です。
+アドレスに意味がある領域、外部への保存、ポインタの返却・比較、EH、operand bundle、
+`musttail` などは従来の永続領域または対象外の扱いを維持します。
+通常の tail ヒントは消去処理を実行できるよう解除します。
+属性が実際の動作を正しく表していることが前提で、非局所ジャンプや終了時の消去は保証しません。
+
+`aggressive` と併用すると、条件に合う文字列だけスコープ付きになり、他の文字列は
+起動時復号と永続領域を使います。既定の選別条件は変更しません。
+AES は `kagura_runtime` が必要です。毎回の復号コストが増え、レジスタや
+呼び出し先が作るコピー、外部 I/O のバッファまでは消去しません。
+
 ## 実例 — 銀行 / FinTech リリース
 
 STRONG プロファイル + per-build AES 鍵ローテーションで、あるバージョンから抽出された鍵が次バージョンで無効になるようにします:
@@ -128,7 +150,7 @@ clang -fpass-plugin=KaguraObfuscator.dylib \
 | `profile` | string | `FAST` / `BALANCED` / `STRONG` / `CUSTOM`。`CUSTOM` は「パスは自分で列挙する」という意味で、プリセットを適用しません。 |
 | `passes` | object | パスごとの有効・無効。キーは `-kagura-` フラグ名からプレフィックスを除いたもの。`"dwarf"` だけは `"keep"` / `"strip"` / `"obfuscate"` を取ります。 |
 | `tuning` | object | 数値パラメータ 5 つ: `seed`, `bcf_prob`, `bcf_iter`, `sub_iter`, `dci_prob`。 |
-| `string` | object | `"aggressive": true` で起動時復号による文字列保護の拡張を有効化。既定は `false`。 |
+| `string` | object | `"aggressive": true` で対象を拡張。`"scoped": true` で条件に合う XOR/AES 文字列の平文保持を制限。両方とも既定は `false`。 |
 | `allowlist` | array of string | `-kagura-allow` と同じ。空でない場合、一致するシンボルだけを難読化します。 |
 | `denylist` | array of string | `-kagura-deny` と同じ。一致するシンボルは対象外になります。 |
 | `protect` | array of string | `-kagura-protect` と同じ。最初に評価されるため、`denylist` `allowlist` `kagura_hotpath` および関数単位の `kagura_no*` アノテーションすべてに優先します。 |

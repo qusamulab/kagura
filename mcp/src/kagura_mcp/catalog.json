@@ -278,5 +278,17 @@
         "dci_prob": 40
       }
     }
+  },
+  "string": {
+    "aggressive": {
+      "flag": "-kagura-string-aggressive",
+      "default": false,
+      "description": "Protect short/format/global-initializer strings using startup decryption."
+    },
+    "scoped": {
+      "flag": "-kagura-string-scoped",
+      "default": false,
+      "description": "Use per-call plaintext buffers and wipe after proven readonly, noncapturing, nonthrowing consumers; otherwise keep persistent storage."
+    }
   }
 }

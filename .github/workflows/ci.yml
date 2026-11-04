@@ -110,11 +110,6 @@ jobs:
       matrix:
         include:
           # macOS arm64 runners
-          # KAGURA_BITCODE_TOOLS=OFF in CI: kagura-opt requires the Homebrew
-          # LLVM libc++ sysroot to be wired up correctly, which varies across
-          # GHA runner images and is a build-system detail orthogonal to
-          # testing the obfuscation passes themselves.  Build kagura-opt locally
-          # with: cmake -DKAGURA_BITCODE_TOOLS=ON -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)
           - { os: macos-14, llvm: "17" }
           - { os: macos-14, llvm: "18" }
           - { os: macos-14, llvm: "19" }
@@ -149,7 +144,7 @@ jobs:
             -DCMAKE_C_COMPILER="$LLVM_PREFIX/bin/clang" \
             -DCMAKE_CXX_COMPILER="$LLVM_PREFIX/bin/clang++" \
             -DKAGURA_BUILD_TESTS=ON \
-            -DKAGURA_BITCODE_TOOLS=OFF \
+            -DKAGURA_BITCODE_TOOLS=ON \
             -DKAGURA_REQUIRE_LIT=ON
 
       - name: Build

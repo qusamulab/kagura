@@ -81,7 +81,7 @@ static Function *buildAntiDebugConstructor(Module &M, bool AntiFramework,
     HB.CreateUnreachable();
   }
 
-  if (AntiPtrace) {
+  if (AntiPtrace && !isWindowsTarget(M)) {
     // --- iOS: PT_DENY_ATTACH via sysctl ---
     // int sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp,
     //            void *newp, size_t newlen)

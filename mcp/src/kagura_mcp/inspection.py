@@ -96,17 +96,18 @@ def doctor(workspace: Workspace, llvm_bin: Path | None = None,
            plugin: Path | None = None) -> dict:
     tools = {}
     warnings = []
-    for name in ("clang", "llvm-config", "opt", "kagura-opt", "llvm-nm", "nm", "llvm-size", "size", "strings"):
+    for name in ("clang", "llvm-config", "opt", "kagura-opt", "kagura", "llvm-nm", "nm", "llvm-size", "size", "strings"):
         candidates = []
         if llvm_bin:
             candidates.append(llvm_bin / name)
-        if name == "kagura-opt":
+        if name in {"kagura-opt", "kagura"}:
             candidates.append(workspace.root / "build" / "bin" / name)
         path = next((str(p) for p in candidates if p.is_file()), None) or shutil.which(name)
         # Windows' native find-on-PATH appends .exe; also support explicit --llvm-bin.
         if not path:
-            path = next((str(p.with_suffix(".exe")) for p in candidates
-                         if p.with_suffix(".exe").is_file()), None)
+            path = next((str(p.with_suffix(ext)) for p in candidates
+                         for ext in ((".cmd",) if name == "kagura" else (".exe",))
+                         if p.with_suffix(ext).is_file()), None)
         tools[name] = {"path": path}
         if path and name in ("clang", "llvm-config", "opt", "kagura-opt"):
             args = [path]
@@ -130,11 +131,19 @@ def doctor(workspace: Workspace, llvm_bin: Path | None = None,
         warnings.append("kagura-opt was not found; build with -DKAGURA_BITCODE_TOOLS=ON for standalone IR processing.")
     elif not tools["kagura-opt"].get("ok"):
         warnings.append("kagura-opt could not start/load its plugin; inspect its version diagnostic and rebuild with a matching LLVM toolchain.")
-    warnings.append("On LLVM 17–21, use kagura-opt or opt; clang -fpass-plugin cannot accept -mllvm -kagura-* flags.")
+    if not tools["kagura"]["path"]:
+        warnings.append("kagura compiler driver was not found; build/install the default bitcode tools, or use kagura-opt directly.")
+    warnings.append("Use kagura with matching --clang and --kagura-opt for source compilation on LLVM 17–22; direct clang -fpass-plugin -mllvm flags require LLVM 22.")
     return {"workspace": str(workspace.root), "tools": tools,
             "plugin": str(plugin) if plugin else None,
             "policy_tools_ready": True,
             "kagura_opt_ready": tools["kagura-opt"].get("ok", False),
+            "compiler_driver_ready": bool(tools["kagura"]["path"] and
+                                          tools["kagura-opt"].get("ok") and
+                                          tools["clang"].get("ok") and
+                                          tools["clang"].get("major") in range(17, 23) and
+                                          tools["clang"].get("major") == tools["kagura-opt"].get("major")
+                                          and "Apple clang" not in tools["clang"].get("version", "")),
             "binary_comparison_ready": bool((tools["llvm-nm"]["path"] or tools["nm"]["path"])
                                              and (tools["llvm-size"]["path"] or tools["size"]["path"])
                                              and tools["strings"]["path"]),

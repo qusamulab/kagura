@@ -236,6 +236,9 @@ bool isX86_64Target(const llvm::Module &M);
 /// structure, or hardware PAC must skip themselves on Wasm targets.
 bool isWasmTarget(const llvm::Module &M);
 
+/// Whether the module uses the Windows loader / ABI.
+bool isWindowsTarget(const llvm::Module &M);
+
 // ---- String global collection ----
 
 /// Collect all ConstantDataArray globals that look like strings, are used in
@@ -268,6 +271,14 @@ void invalidateMemoryEffects(llvm::Function &F);
 /// Guard every instruction leaf of a previously validated constant-use graph.
 void emitStringGuards(llvm::GlobalVariable *GV, llvm::GlobalVariable *FlagGV,
                       llvm::Function *DecryptStub, llvm::StringRef BBPrefix);
+
+/// Whether every string use is a nonthrowing call argument without musttail whose
+/// parameter is both readonly and noncapturing. Limits scoped stack buffers
+/// to 4096 bytes per literal. Unsafe strings retain persistent storage.
+bool hasOnlyScopedStringUses(const llvm::GlobalVariable *GV);
+/// Replace those arguments with per-call buffers, decrypt before the call,
+/// then emit a volatile wipe immediately after it. Stub takes the output ptr.
+void emitScopedStringUses(llvm::GlobalVariable *GV, llvm::Function *Stub);
 
 // ---- Lazy-decrypt guard ----
 

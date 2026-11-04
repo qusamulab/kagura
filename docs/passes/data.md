@@ -27,3 +27,11 @@ for coverage, initialization ordering and memory-lifetime tradeoffs.
 For protecting game-runtime values (HP, currency, etc.) at the C++ level, see
 [Game Protection](../game-protection.md) — `Protected<T>` complements `kagura-mvo`
 by adding a runtime shadow-copy integrity check.
+
+## Scoped plaintext
+
+`-kagura-string-scoped` / `"string": {"scoped": true}` adds per-call stack
+buffers and a volatile wipe for eligible XOR/AES literals. Unsupported uses
+keep persistent storage; wide strings are unaffected. See
+[Configuration](../configuration.md#limit-plaintext-lifetime) for eligibility,
+concurrency, cleanup limits and interaction with aggressive collection.

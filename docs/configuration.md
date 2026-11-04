@@ -149,6 +149,31 @@ upgrade XOR-encrypted strings to AES: the earlier pass consumes those targets.
 For AES protection of eligible narrow strings, set `"str": false` and
 `"str_aes": true`, including when overriding a strength profile.
 
+## Limit plaintext lifetime
+
+Enable `-kagura-string-scoped` or `"string": {"scoped": true}` alongside
+`str` or `str_aes`. This option does not enable a pass itself and does not
+apply to `wstr`. Eligible literals decrypt into a stack buffer immediately
+before each consuming call; a volatile zeroing operation wipes it after the
+call returns. Each call site and invocation has its own buffer, including
+recursive and concurrent invocations.
+
+Eligibility requires private/internal `unnamed_addr` storage (or dso-local
+Windows `linkonce_odr` pooled literals) of at most 4096 bytes and only direct call-argument uses, optionally through constant GEPs or
+casts. Each affected argument must be readonly and noncapturing, and the call
+must be nonthrowing. Address-significant storage, escapes, returned pointers,
+comparisons, instruction-valued GEPs, EH functions, operand bundles and
+`musttail` calls keep the existing persistent behavior or collection exclusion.
+Ordinary tail-call hints are cleared to permit the wipe. Function attributes
+must truthfully describe the consumer; nonlocal exits and process termination
+cannot guarantee cleanup.
+
+`scoped` and `aggressive` can be combined: eligible literals use scoped buffers,
+while other collected strings retain startup decryption and persistent storage.
+Without `aggressive`, the conservative string selection still applies. AES
+requires `kagura_runtime`. Scoped buffers add decryption work on every use and
+do not wipe registers, copies made by consumers, or external I/O buffers.
+
 ## Worked example — bank / FinTech release
 
 Strong profile with per-build AES key rotation so a key extracted from one
@@ -189,7 +214,7 @@ See [Anti-Analysis Passes](passes/anti-analysis.md).
 | `profile` | string | `FAST` / `BALANCED` / `STRONG` / `CUSTOM`. `CUSTOM` means "I am listing the passes myself" and applies no preset. |
 | `passes` | object | Per-pass enables. Keys are `-kagura-` flag names without the prefix. `"dwarf"` additionally takes `"keep"` / `"strip"` / `"obfuscate"`. |
 | `tuning` | object | The five numeric parameters: `seed`, `bcf_prob`, `bcf_iter`, `sub_iter`, `dci_prob`. |
-| `string` | object | `"aggressive": true` opts into broader string coverage with startup decryption; default `false`. |
+| `string` | object | `"aggressive": true` broadens collection; `"scoped": true` limits eligible XOR/AES plaintext lifetime. Both default to `false`. |
 | `allowlist` | array of string | Same as `-kagura-allow`: when non-empty, only matching symbols are obfuscated. |
 | `denylist` | array of string | Same as `-kagura-deny`: matching symbols are left alone. |
 | `protect` | array of string | Same as `-kagura-protect`: force-protect matching symbols. Checked first, so it wins over `denylist`, `allowlist`, `kagura_hotpath` and per-function `kagura_no*` annotations alike. |

@@ -145,7 +145,8 @@ PreservedAnalyses StringEncryptionAESPass::run(Module &M,
   auto *Int8Ty = Type::getInt8Ty(Ctx);
 
   for (auto *GV : Strings) {
-    if (!opt::StringAggressive && !hasOnlyGuardableUses(GV))
+    if (!(opt::StringScoped && hasOnlyScopedStringUses(GV)) &&
+        !opt::StringAggressive && !hasOnlyGuardableUses(GV))
       continue;
 
     auto *CDA = cast<ConstantDataArray>(GV->getInitializer());
@@ -193,6 +194,15 @@ PreservedAnalyses StringEncryptionAESPass::run(Module &M,
       Function *Stub = buildAESDecryptStub(M, EncGV, KeyGV, NonceGV,
                                            Len, BlobChecksum, Suffix,
                                            RuntimeDecrypt, BlobIntegrity);
+
+      if (opt::StringScoped && hasOnlyScopedStringUses(GV)) {
+        EncGV->setConstant(true);
+        emitScopedStringUses(GV, Stub);
+        GV->removeDeadConstantUsers();
+        GV->eraseFromParent();
+        Changed = true;
+        continue;
+      }
 
       // One persistent buffer per literal preserves its lifetime and identity,
       // including pointers returned or captured by application code.

@@ -47,6 +47,7 @@ def cmd_config_gen(args):
         profile=args.profile or "CUSTOM", passes=passes,
         tuning={"seed": int(args.seed)} if args.seed is not None else None,
         protect=patterns(args.protect), denylist=patterns(args.deny), allowlist=patterns(args.allow),
+        aggressive_strings=args.aggressive_strings, scoped_strings=args.scoped_strings,
     )
     cfg = result["config"]
     flags = []
@@ -180,6 +181,8 @@ def main():
     cg.add_argument("--symmap",  action="store_true", help="Enable symbol map")
     cg.add_argument("--symmap-out", dest="symmap_out", help="Symbol map output path")
     cg.add_argument("--dwarf",   choices=["keep","strip","obfuscate"], help="DWARF mode")
+    cg.add_argument("--aggressive-strings", action="store_true", help="Protect short/format/startup strings")
+    cg.add_argument("--scoped-strings", action="store_true", help="Wipe per-call plaintext when lifetime permits")
     cg.add_argument("-o", "--output", help="Output path (default: stdout)")
 
     cc = sub.add_parser("config-check", help="Validate a policy without LLVM or compilation")

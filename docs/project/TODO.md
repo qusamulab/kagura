@@ -2,14 +2,6 @@
 
 Only unfinished work belongs here; remove completed items instead of keeping struck-through rows. Status reflects the current working tree, including changes not yet committed or released.
 
-## Current focus
-
-| ID | Feature | Priority | Remaining work |
-|:---|:--------|:---------|:---------------|
-| D.5 | Windows anti-debug and call-indirection runtime | High | The existing Windows debugger probes do not export the six `kagura_check_*` symbols emitted by `AntiDebug.cpp`. Implement those entry points, and replace CallIndirection's POSIX `dlsym` / `kagura_rtld_default_handle` path with Windows module/symbol resolution. Remove the corresponding `WILL_FAIL` markers in `tests/CMakeLists.txt` once the Windows link tests pass. |
-| D.3 | A `kagura` compiler driver | Medium | Provide a source-to-binary entry point using `clang -emit-llvm` → `opt --load-pass-plugin` or statically linked `kagura-opt` → `clang`. Preserve compile/link arguments and tool failures, support the intended target/toolchain, and reuse the standalone policy validator. Include the required tools in default builds and release bundles; `KAGURA_BITCODE_TOOLS` is currently off in both the default configuration and the release workflow. |
-| D.4 | Limit decrypted-string lifetime | Medium | XOR and AES strings currently use persistent storage: default mode decrypts on first access; aggressive mode decrypts at startup. Add an opt-in scoped-buffer / wipe or re-encryption path only where the consumer's lifetime is known. Preserve escaped/returned pointers, pointer identity, exception cleanup and concurrent readers. AES also uses a persistent global buffer, so it does not already solve this. Correct the decrypt-zero claims in `docs/security-model.md` and stale examples in `docs/passes/before-after.md`. |
-
 ## Additional implementation gaps
 
 These are missing runtime behavior or inaccurate capability claims, independent of resistance scoring or evaluation automation.

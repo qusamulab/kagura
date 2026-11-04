@@ -6,31 +6,35 @@ What an attacker actually sees, before and after Kagura.
 
 ## String Encryption (`-kagura-str`)
 
-**Before** — string literal in plaintext `.rodata`:
+Default mode decrypts on first access and retains persistent plaintext.
+Adding `-kagura-string-scoped` produces this shape for eligible calls only.
+These excerpts are schematic; the consumer must be readonly, noncapturing
+and nonthrowing.
 
 ```llvm
-@api_key = private constant [33 x i8] c"sk-prod-9f2a1c3e8b4d7f0e1a2c3d4e5f6a7b8c\00"
+; Before
+@secret = private unnamed_addr constant [14 x i8] c"scoped-secret\00"
+declare void @consume(ptr nocapture readonly) nounwind
 
 define void @connect() {
-  call void @send_auth(ptr @api_key)
+  call void @consume(ptr @secret)
+  ret void
 }
 ```
 
-**After** — XOR-encrypted blob; decrypted on first call, zeroed immediately after:
-
 ```llvm
-@api_key.enc = private constant [33 x i8] c"\xde\xad\x7f\x12..."  ; encrypted
-@api_key.dec = global [33 x i8] zeroinitializer                    ; plaintext lives here only briefly
-
+; After (encrypted bytes and decryptor body omitted)
 define void @connect() {
-  ; injected decrypt stub — checks flag, XORs blob into .dec, calls send_auth, zeros .dec
-  call void @__kagura_str_init_0()
-  call void @send_auth(ptr @api_key.dec)
+  %buffer = alloca [14 x i8]
+  call void @kagura_decrypt_0(ptr %buffer)
+  call void @consume(ptr %buffer)
+  call void @llvm.memset.p0.i64(ptr %buffer, i8 0, i64 14, i1 true)
+  ret void
 }
 ```
 
-`strings` on the binary returns garbage. IDA's string list is empty for this
-value.
+Ineligible strings retain persistent storage. AES uses the same eligibility rules.
+See [Configuration](../configuration.md#limit-plaintext-lifetime).
 
 ---
 

@@ -9,6 +9,17 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `kagura` source compiler driver for LLVM 17–22, included in default builds
+  and release bundles. Supports explicit toolchains, separate compilation,
+  runtime discovery and policy preflight through native check-only validation.
+- Opt-in `-kagura-string-scoped` / `"string": {"scoped": true}` for XOR/AES:
+  eligible nonthrowing, readonly, noncapturing consumers use per-call stack
+  plaintext with a volatile wipe. Unsupported uses retain persistent storage.
+- MCP/CLI scoped-string policy generation and validation; doctor reports
+  compiler-driver discovery and toolchain readiness.
+- Windows AntiDebug runtime entry points, loaded-module symbol resolution for
+  DLL-import call indirection, and clean/patched API/IAT runtime tests.
+
 - Local `kagura-mcp` stdio server with environment diagnosis, registry/profile
   discovery, policy generation and validation, paginated audit inspection, and
   structured baseline/obfuscated binary comparison. File inputs are scoped to
@@ -17,6 +28,16 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   numeric ranges and flavor validation. The MCP SDK is not needed by this CLI.
 
 ### Fixed
+
+- Windows debugger PEB access supports MSVC intrinsics; AntiDebug omits POSIX
+  ptrace startup on Windows. Hardware detection uses a real CPU trap context.
+- Preserve selected MSVC CRT linkage across split driver stages; safely scoped
+  Windows pooled COMDAT literals can now be transformed.
+- Ordinary COFF external calls retain linker resolution instead of attempting unexported symbol lookup.
+- Strict native policy validation rejects invalid types/ranges and unused
+  malformed flavors, including file/JSON errors; check-only mode writes no IR.
+- Correct plaintext-lifetime claims: default XOR/AES buffers remain persistent;
+  scoped wiping is conditional and cannot erase consumer copies or registers.
 
 - Generate CLI policies from the same profiles and pass registry as the plugin,
   including current opt-in passes. Emit `allowlist`/`denylist`, `tuning.seed`

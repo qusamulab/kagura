@@ -6,11 +6,130 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Support/ModRef.h"
 
 using namespace llvm;
 
 namespace kagura {
+
+// A scoped literal must have no observable use beyond one call's duration.
+// In particular, rejecting global initializers, PHIs, pointer comparisons and
+// escaping/returned pointers preserves the normal persistent-literal contract.
+static bool refersToString(const Value *V, const GlobalVariable *GV) {
+  while (auto *CE = dyn_cast<ConstantExpr>(V)) {
+    if (CE->getOpcode() != Instruction::GetElementPtr &&
+        CE->getOpcode() != Instruction::BitCast)
+      return false;
+    V = CE->getOperand(0);
+  }
+  return V == GV;
+}
+
+// MSVC pools literals into discardable COMDAT definitions rather than private
+// globals. An unnamed-address, dso-local linkonce_odr literal can disappear
+// once every reference in this module has been replaced with a scoped buffer.
+static bool scopedStorage(const GlobalVariable *GV) {
+  return GV->hasLocalLinkage() ||
+         (isWindowsTarget(*GV->getParent()) && GV->hasLinkOnceODRLinkage() &&
+          GV->isDSOLocal() && !GV->hasDLLExportStorageClass());
+}
+
+static bool scopedCalls(const GlobalVariable *GV,
+                        SmallVectorImpl<CallInst *> &Calls) {
+  if (!GV->hasGlobalUnnamedAddr() || !scopedStorage(GV) || GV->hasSection() || GV->isThreadLocal() ||
+      GV->getAddressSpace() != 0 || GV->isExternallyInitialized())
+    return false;
+  auto *Data = dyn_cast<ConstantDataArray>(GV->getInitializer());
+  if (!Data || !Data->isString() || Data->getRawDataValues().size() > 4096)
+    return false;
+  SmallVector<const User *, 16> Worklist(GV->users());
+  SmallPtrSet<const User *, 16> Seen;
+  SmallPtrSet<CallInst *, 8> SeenCalls;
+  while (!Worklist.empty()) {
+    const User *U = Worklist.pop_back_val();
+    if (!Seen.insert(U).second)
+      continue;
+    if (auto *CE = dyn_cast<ConstantExpr>(U)) {
+      if (CE->getOpcode() != Instruction::GetElementPtr &&
+          CE->getOpcode() != Instruction::BitCast)
+        return false;
+      Worklist.append(CE->user_begin(), CE->user_end());
+      continue;
+    }
+    auto *CI = dyn_cast<CallInst>(const_cast<User *>(U));
+    if (!CI || CI->isMustTailCall() || !CI->doesNotThrow() ||
+        CI->hasFnAttr(Attribute::ReturnsTwice) || CI->hasOperandBundles() || hasExceptionHandling(*CI->getFunction()))
+      return false;
+    // Examine the actual operand use, not merely the callee declaration:
+    // one call can use this literal in more than one argument position.
+    for (const Use &Arg : CI->args()) {
+      if (!refersToString(Arg.get(), GV))
+        continue;
+      unsigned Index = CI->getArgOperandNo(&Arg);
+      if (!CI->doesNotCapture(Index) || !CI->onlyReadsMemory(Index))
+        return false;
+    }
+    // Global addresses used as a callee are never string consumers.
+    if (refersToString(CI->getCalledOperand(), GV))
+      return false;
+    if (SeenCalls.insert(CI).second)
+      Calls.push_back(CI);
+  }
+  return !Calls.empty();
+}
+
+bool hasOnlyScopedStringUses(const GlobalVariable *GV) {
+  SmallVector<CallInst *, 8> Calls;
+  return scopedCalls(GV, Calls);
+}
+
+// Rebuild a constant GEP/cast with an instruction-valued buffer as its base.
+static Value *scopedOperand(Value *V, GlobalVariable *GV, Value *Buffer,
+                            IRBuilder<> &B) {
+  if (V == GV)
+    return Buffer;
+  auto *CE = dyn_cast<ConstantExpr>(V);
+  if (!CE)
+    return V;
+  SmallVector<Value *, 4> Operands;
+  bool Changed = false;
+  for (Value *Op : CE->operands()) {
+    Value *New = scopedOperand(Op, GV, Buffer, B);
+    Operands.push_back(New);
+    Changed |= New != Op;
+  }
+  if (!Changed)
+    return V;
+  Instruction *I = CE->getAsInstruction();
+  for (unsigned N = 0; N < Operands.size(); ++N)
+    I->setOperand(N, Operands[N]);
+  return B.Insert(I);
+}
+
+void emitScopedStringUses(GlobalVariable *GV, Function *Stub) {
+  SmallVector<CallInst *, 8> Calls;
+  bool Safe = scopedCalls(GV, Calls);
+  assert(Safe && "scoped string uses must be validated before mutation");
+  (void)Safe;
+  auto *Type = cast<ArrayType>(GV->getValueType());
+  for (CallInst *CI : Calls) {
+    Function &F = *CI->getFunction();
+    IRBuilder<> Entry(&*F.getEntryBlock().getFirstInsertionPt());
+    auto *Buffer = Entry.CreateAlloca(Type, nullptr, "kagura.scoped");
+    if (auto A = GV->getAlign())
+      Buffer->setAlignment(*A);
+    CI->setTailCallKind(CallInst::TCK_None); // Cleanup must run before returning.
+    IRBuilder<> Before(CI);
+    Before.CreateCall(Stub, {Buffer});
+    for (Use &Arg : CI->args())
+      Arg.set(scopedOperand(Arg.get(), GV, Buffer, Before));
+    IRBuilder<> After(CI->getNextNode());
+    After.CreateMemSet(Buffer, After.getInt8(0), Type->getNumElements(),
+                      Buffer->getAlign(), /*isVolatile=*/true);
+    invalidateMemoryEffects(F);
+  }
+}
 
 // ---- Global-variable use analysis ----
 
@@ -177,15 +296,16 @@ std::vector<GlobalVariable *> collectStringGlobals(Module &M,
   for (auto &GV : M.globals()) {
     if (!GV.isConstant() || !GV.hasInitializer())
       continue;
-    if (StrictLinkage && GV.getLinkage() != GlobalValue::PrivateLinkage &&
-        GV.getLinkage() != GlobalValue::InternalLinkage)
+    if (StrictLinkage && !GV.hasLocalLinkage() &&
+        !(opt::StringScoped && hasOnlyScopedStringUses(&GV)))
       continue;
     auto *CDA = dyn_cast<ConstantDataArray>(GV.getInitializer());
     if (!CDA || !CDA->isString())
       continue;
     StringRef S = CDA->getAsString();
     if (opt::StringAggressive) {
-      if (!S.empty() && canProtectStringAtStartup(GV))
+      if (!S.empty() && ((opt::StringScoped && hasOnlyScopedStringUses(&GV)) ||
+                         canProtectStringAtStartup(GV)))
         Result.push_back(&GV);
       continue;
     }

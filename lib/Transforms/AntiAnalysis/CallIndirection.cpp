@@ -12,7 +12,7 @@
 //        %p = load ptr, ptr getelementptr(__kagura_thunk_table, 0, slot_idx)
 //        call %p(original_args...)
 //   3. A module constructor (kagura_init_thunk_table, priority 65535) calls
-//      dlsym(RTLD_DEFAULT, "symbol_name") for each slot at startup, populating
+//      the platform loader for each symbol at startup, populating
 //      the table. Per-slot resolvers also handle calls from earlier ctors.
 //
 // Calls that are skipped:
@@ -91,6 +91,10 @@ static std::vector<Function *> collectExternalCallees(Module &M) {
         Function *Callee = CI->getCalledFunction();
         if (!Callee)
           continue; // indirect already
+        // Unexported COFF symbols (including the static CRT and another TU)
+        // are linker-owned and cannot be found with GetProcAddress.
+        if (isWindowsTarget(M) && !Callee->hasDLLImportStorageClass())
+          continue;
         if (!isInterceptableExternal(*Callee))
           continue;
         if (hasFuncletBundle(*CI))
@@ -135,7 +139,7 @@ static Function *getOrDeclareDlsym(Module &M) {
 }
 
 /// Build the constructor `void kagura_init_thunk_table(void)` that fills each
-/// slot of the thunk table via dlsym(RTLD_DEFAULT, "name").
+/// slot of the thunk table via the platform symbol resolver.
 ///
 /// Rather than embed a platform-specific RTLD_DEFAULT constant in IR, we
 /// call the runtime helper `kagura_rtld_default_handle()` which returns the
@@ -155,17 +159,17 @@ static Function *buildInitConstructor(Module &M, GlobalVariable *ThunkTable,
   auto *Entry = &Ctor->getEntryBlock();
   IRBuilder<> B(Entry);
 
-  Function *DlsymFn        = getOrDeclareDlsym(M);
-  FunctionType *DlsymFTy   = DlsymFn->getFunctionType();
+  Function *DlsymFn = isWindowsTarget(M) ? nullptr : getOrDeclareDlsym(M);
   ArrayType    *TableArrTy = cast<ArrayType>(ThunkTable->getValueType());
 
   // Get RTLD_DEFAULT from a runtime helper to handle macOS vs Linux difference.
   // kagura_rtld_default_handle() returns (void*)-2 on Apple, NULL on Linux.
-  auto *RtldFTy = FunctionType::get(PtrTy, false);
-  auto *RtldFn  = cast<Function>(
-      M.getOrInsertFunction("kagura_rtld_default_handle", RtldFTy).getCallee());
-  RtldFn->addFnAttr(Attribute::NoUnwind);
-  Value *RtldDefault = B.CreateCall(RtldFTy, RtldFn, {}, "rtld_default");
+  Value *RtldDefault = nullptr;
+  if (!isWindowsTarget(M)) {
+    auto *RtldFTy = FunctionType::get(PtrTy, false);
+    auto RtldFn = M.getOrInsertFunction("kagura_rtld_default_handle", RtldFTy);
+    RtldDefault = B.CreateCall(RtldFn, {}, "rtld_default");
+  }
 
   for (unsigned Idx = 0, N = static_cast<unsigned>(Callees.size());
        Idx < N; ++Idx) {
@@ -188,8 +192,14 @@ static Function *buildInitConstructor(Module &M, GlobalVariable *ThunkTable,
         "sym_name_ptr");
 
     // resolved = dlsym(RTLD_DEFAULT, "name")
-    Value *Resolved = B.CreateCall(DlsymFTy, DlsymFn,
-                                   {RtldDefault, NamePtr}, "resolved");
+    Value *Resolved;
+    if (isWindowsTarget(M)) {
+      auto *FTy = FunctionType::get(PtrTy, {PtrTy, PtrTy}, false);
+      auto Resolve = M.getOrInsertFunction("kagura_windows_resolve_symbol", FTy);
+      Resolved = B.CreateCall(Resolve, {NamePtr, Callees[Idx]}, "resolved");
+    } else {
+      Resolved = B.CreateCall(DlsymFn, {RtldDefault, NamePtr}, "resolved");
+    }
 
     // Store into table[Idx]
     Value *SlotPtr = B.CreateInBoundsGEP(
@@ -224,12 +234,19 @@ static Function *buildSlotResolver(Module &M, GlobalVariable *Table,
   B.CreateCondBr(B.CreateIsNull(Cached), Lookup, Done);
 
   B.SetInsertPoint(Lookup);
-  auto *HandleTy = FunctionType::get(PtrTy, false);
-  auto Handle = M.getOrInsertFunction("kagura_rtld_default_handle", HandleTy);
-  auto *DlsymTy = FunctionType::get(PtrTy, {PtrTy, PtrTy}, false);
-  auto Dlsym = M.getOrInsertFunction("dlsym", DlsymTy);
   auto *Name = B.CreateGlobalString(Callee.getName(), "__kagura_lookup_name");
-  auto *Resolved = B.CreateCall(Dlsym, {B.CreateCall(Handle), Name});
+  Value *Resolved;
+  if (isWindowsTarget(M)) {
+    auto *ResolveTy = FunctionType::get(PtrTy, {PtrTy, PtrTy}, false);
+    auto Resolve = M.getOrInsertFunction("kagura_windows_resolve_symbol", ResolveTy);
+    Resolved = B.CreateCall(Resolve, {Name, &Callee});
+  } else {
+    auto *HandleTy = FunctionType::get(PtrTy, false);
+    auto Handle = M.getOrInsertFunction("kagura_rtld_default_handle", HandleTy);
+    auto *DlsymTy = FunctionType::get(PtrTy, {PtrTy, PtrTy}, false);
+    auto Dlsym = M.getOrInsertFunction("dlsym", DlsymTy);
+    Resolved = B.CreateCall(Dlsym, {B.CreateCall(Handle), Name});
+  }
   // Concurrent first uses may perform redundant lookups, but never race on
   // the cache or publish a partially initialized pointer.
   B.CreateAlignedStore(Resolved, Slot, Align(8))

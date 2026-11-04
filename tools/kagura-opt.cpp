@@ -80,7 +80,11 @@ llvm::PassPluginLibraryInfo getKaguraPluginInfo();
 // ---- CLI options ------------------------------------------------------------
 
 static cl::opt<std::string> InputFilename(
-    cl::Positional, cl::desc("<input .bc or .ll>"), cl::Required);
+    cl::Positional, cl::desc("<input .bc or .ll>"), cl::init(""));
+
+static cl::opt<bool> ConfigCheck(
+    "kagura-config-check", cl::desc("Validate -kagura-config without input IR"),
+    cl::init(false));
 
 static cl::opt<std::string> OutputFilename(
     "o", cl::desc("Output filename"), cl::value_desc("filename"),
@@ -200,7 +204,23 @@ int main(int argc, char **argv) {
   // Load the input module
   LLVMContext Ctx;
   SMDiagnostic Err;
-  std::unique_ptr<Module> M = parseIRFile(InputFilename, Err, Ctx);
+  if (ConfigCheck) {
+    if (!InputFilename.empty() ||
+        static_cast<cl::opt<std::string> *>(
+            cl::getRegisteredOptions().lookup("kagura-config"))->getValue().empty()) {
+      WithColor::error() << "Use -kagura-config-check -kagura-config=<policy.json> "
+                           "without input IR.\n";
+      return 1;
+    }
+    auto *Strict = cl::getRegisteredOptions().lookup("kagura-config-strict");
+    *static_cast<cl::opt<bool> *>(Strict) = true;
+  } else if (InputFilename.empty()) {
+    WithColor::error() << "An input .bc or .ll file is required.\n";
+    return 1;
+  }
+  std::unique_ptr<Module> M = ConfigCheck
+      ? std::make_unique<Module>("config-check", Ctx)
+      : parseIRFile(InputFilename, Err, Ctx);
   if (!M) {
     Err.print(argv[0], errs());
     return 1;
@@ -244,6 +264,17 @@ int main(int argc, char **argv) {
   PB.registerFunctionAnalyses(FAM);
   PB.registerLoopAnalyses(LAM);
   PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+  if (ConfigCheck) {
+    ModulePassManager Checks;
+    if (auto E = PB.parsePassPipeline(Checks, "kagura-config")) {
+      WithColor::error() << toString(std::move(E)) << '\n';
+      return 1;
+    }
+    Checks.run(*M, MAM);
+    outs() << "Policy is valid.\n";
+    return 0;
+  }
 
   // buildPerModuleDefaultPipeline asserts `Level != O0` — O0 has its own
   // builder. Without this branch, `kagura-opt -O0` aborted, which took out the
