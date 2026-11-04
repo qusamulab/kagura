@@ -11,6 +11,13 @@
 __declspec(dllexport) int kagura_test_export(void);
 __declspec(dllexport) int kagura_test_export(void) { return 42; }
 
+#if defined(_M_X64) || defined(_M_IX86) || defined(__x86_64__) || defined(__i386__)
+static DWORD WINAPI hardware_probe(LPVOID unused) {
+    (void)unused;
+    return (DWORD)kagura_check_hw_breakpoints();
+}
+#endif
+
 static ULONG_PTR *debugger_import(void) {
     unsigned char *base = (unsigned char *)GetModuleHandleW(NULL);
     IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)base;
@@ -88,6 +95,26 @@ int main(void) {
     { void *imported = (void *)(uintptr_t)GetProcAddress(
           GetModuleHandleW(L"kernel32.dll"), "GetCurrentProcessId");
       CHECK(kagura_windows_resolve_symbol("kagura_test_export", imported) == imported); }
+
+#if defined(_M_X64) || defined(_M_IX86) || defined(__x86_64__) || defined(__i386__)
+    /* Set a real debug register on a suspended worker. Its address is never
+     * executed, so detection must inspect the register rather than a trap. */
+    { CONTEXT context;
+      DWORD result;
+      HANDLE thread = CreateThread(NULL, 0, hardware_probe, NULL, CREATE_SUSPENDED, NULL);
+      CHECK(thread != NULL);
+      memset(&context, 0, sizeof(context));
+      context.ContextFlags = CONTEXT_DEBUG_REGISTERS;
+      CHECK(GetThreadContext(thread, &context));
+      context.Dr0 = (DWORD_PTR)&kagura_test_export;
+      context.Dr7 = (context.Dr7 & ~(DWORD_PTR)0xffU) | 1U;
+      CHECK(SetThreadContext(thread, &context));
+      CHECK(ResumeThread(thread) != (DWORD)-1);
+      CHECK(WaitForSingleObject(thread, 10000) == WAIT_OBJECT_0);
+      CHECK(GetExitCodeThread(thread, &result));
+      CloseHandle(thread);
+      CHECK(result == 1); }
+#endif
 
     slot = debugger_import();
     CHECK(slot != NULL);

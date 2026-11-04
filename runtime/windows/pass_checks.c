@@ -14,8 +14,14 @@
 static int readable(const void *ptr, size_t len) {
     MEMORY_BASIC_INFORMATION info;
     uintptr_t at = (uintptr_t)ptr;
+    DWORD access;
     if (!VirtualQuery(ptr, &info, sizeof(info)) || info.State != MEM_COMMIT ||
         (info.Protect & (PAGE_GUARD | PAGE_NOACCESS)))
+        return 0;
+    access = info.Protect & 0xffU;
+    if (access != PAGE_READONLY && access != PAGE_READWRITE &&
+        access != PAGE_WRITECOPY && access != PAGE_EXECUTE_READ &&
+        access != PAGE_EXECUTE_READWRITE && access != PAGE_EXECUTE_WRITECOPY)
         return 0;
     return at >= (uintptr_t)info.BaseAddress &&
            at - (uintptr_t)info.BaseAddress <= info.RegionSize &&
