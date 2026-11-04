@@ -7,8 +7,17 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-11-04
+
 ### Added
 
+- Rewritten paper with explicit threat model and implementation boundaries,
+  reproducible selected-pass measurements, and a separate historical
+  shipped-profile deployment experiment. Generated tables and raw observations
+  distinguish code growth, bounded correctness checks and startup failures.
+- Evaluation-tool regression checks across the Python CI matrix. Reports mark
+  running, failed and completed measurements; table generation rejects
+  incomplete reports and follows the recorded seed list.
 - `kagura` source compiler driver for LLVM 17–22, included in default builds
   and release bundles. Supports explicit toolchains, separate compilation,
   runtime discovery and policy preflight through native check-only validation.
@@ -29,6 +38,10 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Failed paper-evaluation reruns no longer leave earlier results available as
+  the current measurement; table generation also removes stale output on error.
+- Paper descriptions distinguish Windows limitations at the historical
+  measurement revision from runtime support added subsequently in PR #79.
 - Windows debugger PEB access supports MSVC intrinsics; AntiDebug omits POSIX
   ptrace startup on Windows. Hardware detection uses a real CPU trap context.
 - Preserve selected MSVC CRT linkage across split driver stages; safely scoped
@@ -43,6 +56,14 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   including current opt-in passes. Emit `allowlist`/`denylist`, `tuning.seed`
   and `passes.dwarf` in their supported locations. Report audit, symbol-map and
   build-ID options as additional compiler flags instead of ignored JSON keys.
+
+### Known limitations
+
+- The paper records startup aborts with shipped anti-debug profiles on its
+  arm64 macOS host. A v0.4.0 pre-release check with two additional seeds
+  reproduced those aborts; explicit anti-debug ablations passed bounded
+  correctness checks. This release documents the issue without changing the
+  runtime detector. Validate profile startup on each deployment target.
 
 ## [0.3.0] — 2026-10-26
 
