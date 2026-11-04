@@ -51,9 +51,9 @@ argument array. The installed `.venv/bin/kagura-mcp` executable can replace uv.
 
 | Tool | Inputs and result |
 |:-----|:------------------|
-| `doctor` | Tool paths and versions, kagura-opt load probe, prerequisites and warnings |
+| `doctor` | Tool paths and versions, kagura-opt load probe, compiler-driver readiness, prerequisites and warnings |
 | `list_passes` | Registry-derived pass descriptions, canonical keys, CLI flags, numeric defaults and exact profiles |
-| `generate_config` | Profile, pass/tuning overrides, symbol lists and optional aggressive strings → policy proposal and notes |
+| `generate_config` | Profile, pass/tuning overrides, symbol lists and optional aggressive/scoped strings → policy proposal and notes |
 | `validate_config` | Exactly one `config` object or workspace `path` → errors with JSON paths |
 | `inspect_audit` | JSONL `path`, optional module/function substring filters and offset/limit → counts, function page and malformed-line errors |
 | `compare_binaries` | Baseline/obfuscated paths → size/section/symbol/string count deltas and bounded symbol samples |
@@ -68,6 +68,16 @@ does not compile, apply passes, write policies or modify binaries.
 All built-in profiles enable anti-debug and require `kagura_runtime`.
 `-kagura-audit`, `-kagura-symmap` and `-kagura-build-id` are CLI-only options,
 not root policy keys. An `audit_out` path still needs `-kagura-audit`.
+
+`generate_config(scoped_strings=true)` emits `"string": {"scoped": true}`.
+It can be combined with `aggressive_strings`; enable `str` or `str_aes` as well.
+Only eligible readonly, noncapturing, nonthrowing consumers use wiped stack
+buffers; unsupported uses keep persistent plaintext. The Python CLI exposes
+`config-gen --scoped-strings --aggressive-strings` for the same policy options.
+`doctor` reports `compiler_driver_ready` only when the driver is present and
+clang/kagura-opt start with matching supported upstream LLVM majors.
+Use `kagura --config-check` for the compiler's native strict check and `kagura`
+for source compilation. The MCP tools continue to perform read-only inspection.
 
 The authoring validator is deliberately stricter than the compiler loader:
 unknown root keys, wrong types, probabilities outside 0–100, duplicate alias

@@ -6,30 +6,34 @@
 
 ## 文字列暗号化 (`-kagura-str`)
 
-**Before** — 平文の `.rodata` 内の文字列リテラル:
+既定では初使用時に復号し、その後は平文を永続領域に保持します。
+`-kagura-string-scoped` を加えると、条件に合う呼び出しだけ次のようになります。
+以下は概略です。引数は readonly・非キャプチャ、呼び出しは非例外である必要があります。
 
 ```llvm
-@api_key = private constant [33 x i8] c"sk-prod-9f2a1c3e8b4d7f0e1a2c3d4e5f6a7b8c\00"
+; Before
+@secret = private unnamed_addr constant [14 x i8] c"scoped-secret\00"
+declare void @consume(ptr nocapture readonly) nounwind
 
 define void @connect() {
-  call void @send_auth(ptr @api_key)
+  call void @consume(ptr @secret)
+  ret void
 }
 ```
 
-**After** — XOR 暗号化されたブロブ。初回呼び出しで復号、直後にゼロクリア:
-
 ```llvm
-@api_key.enc = private constant [33 x i8] c"\xde\xad\x7f\x12..."  ; 暗号化済
-@api_key.dec = global [33 x i8] zeroinitializer                    ; 平文は短時間だけここに存在
-
+; After (encrypted bytes and decryptor body omitted)
 define void @connect() {
-  ; 注入された復号スタブ — フラグ確認、XOR で .dec に展開、send_auth 呼び出し、.dec をゼロ化
-  call void @__kagura_str_init_0()
-  call void @send_auth(ptr @api_key.dec)
+  %buffer = alloca [14 x i8]
+  call void @kagura_decrypt_0(ptr %buffer)
+  call void @consume(ptr %buffer)
+  call void @llvm.memset.p0.i64(ptr %buffer, i8 0, i64 14, i1 true)
+  ret void
 }
 ```
 
-`strings` を実行してもガベージしか返らない。IDA の文字列リストにこの値は表示されない。
+対象外の文字列は永続領域のままです。AES でも同じ条件を使います。
+詳細は [設定](../configuration.ja.md) を参照してください。
 
 ---
 

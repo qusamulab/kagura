@@ -194,6 +194,15 @@ PreservedAnalyses StringEncryptionAESPass::run(Module &M,
                                            Len, BlobChecksum, Suffix,
                                            RuntimeDecrypt, BlobIntegrity);
 
+      if (opt::StringScoped && hasOnlyScopedStringUses(GV)) {
+        EncGV->setConstant(true);
+        emitScopedStringUses(GV, Stub);
+        GV->removeDeadConstantUsers();
+        GV->eraseFromParent();
+        Changed = true;
+        continue;
+      }
+
       // One persistent buffer per literal preserves its lifetime and identity,
       // including pointers returned or captured by application code.
       EncGV->setConstant(true);

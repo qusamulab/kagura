@@ -62,6 +62,12 @@ cl::opt<bool> StringAggressive(
              "using startup decryption"),
     cl::init(false));
 
+cl::opt<bool> StringScoped(
+    "kagura-string-scoped",
+    cl::desc("[Kagura] Decrypt XOR/AES strings into per-call buffers and wipe "
+             "after noncapturing, readonly, nonthrowing consumers"),
+    cl::init(false));
+
 // ---- Build-system / DX flags ----
 
 cl::opt<bool> AutoSelect(

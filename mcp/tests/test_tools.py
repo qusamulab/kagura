@@ -9,9 +9,10 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from kagura_mcp.binary import BinaryInfo, structured_report
-from kagura_mcp.inspection import Workspace
+from kagura_mcp.inspection import Workspace, doctor
 from kagura_mcp.policy import catalog, generate_config, load_config, validate_config
 
 REPO = Path(__file__).resolve().parents[2]
@@ -73,6 +74,17 @@ class PolicyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             load_config('{"seed":NaN}')
 
+    def test_scoped_policy_and_flavor_validation(self):
+        result = generate_config("CUSTOM", passes={"str_aes": True},
+                                 aggressive_strings=True, scoped_strings=True)
+        self.assertEqual(result["config"]["string"], {"aggressive": True, "scoped": True})
+        self.assertTrue(validate_config(result["config"])["valid"])
+        self.assertTrue(any("persistent" in note for note in result["notes"]))
+        self.assertTrue(validate_config({"flavors": {"release": {"string": {"scoped": False}}}})["valid"])
+        for value in (1, "true", None, []):
+            self.assertFalse(validate_config({"string": {"scoped": value}})["valid"])
+        self.assertFalse(validate_config({"string": {"scope": True}})["valid"])
+
     def test_invalid_generation_never_produces_policy(self):
         with self.assertRaises(ValueError):
             generate_config("TYPO")
@@ -86,6 +98,29 @@ class WorkspaceTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.workspace = Workspace(self.root)
+
+    def test_doctor_requires_matching_supported_toolchain_and_driver(self):
+        directory = self.root / "build/bin"
+        directory.mkdir(parents=True)
+        for name in ("clang", "kagura-opt", "kagura"):
+            (directory / name).touch()
+
+        def version(args, **kwargs):
+            compiler = Path(args[0]).name == "clang"
+            output = clang_version if compiler else "LLVM version 21.1.0"
+            return subprocess.CompletedProcess(args, 0, output, "")
+
+        with patch("kagura_mcp.inspection.shutil.which", return_value=None), \
+                patch("kagura_mcp.inspection.subprocess.run", side_effect=version):
+            for clang_version, expected in (("clang version 21.1.0", True),
+                                            ("clang version 22.0.0", False),
+                                            ("Apple clang version 21.0.0", False),
+                                            ("unrecognized", False)):
+                result = doctor(self.workspace, llvm_bin=directory)
+                self.assertEqual(result["compiler_driver_ready"], expected, result)
+            (directory / "kagura").unlink()
+            clang_version = "clang version 21.1.0"
+            self.assertFalse(doctor(self.workspace, llvm_bin=directory)["compiler_driver_ready"])
 
     def test_paths_cannot_escape(self):
         with tempfile.TemporaryDirectory() as other:
@@ -180,6 +215,14 @@ class CLITests(unittest.TestCase):
         for flag in ("-kagura-audit", "-kagura-symmap", "-kagura-build-id=release"):
             self.assertIn(flag, result.stderr)
 
+    def test_cli_generates_both_string_modes(self):
+        result = self.run_cli("config-gen", "--profile", "CUSTOM", "--passes", "str-aes",
+                              "--aggressive-strings", "--scoped-strings")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        config = json.loads(result.stdout)
+        self.assertEqual(config["string"], {"aggressive": True, "scoped": True})
+        self.assertTrue(validate_config(config)["valid"])
+
     def test_unknown_pass_does_not_write_output(self):
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp) / "policy.json"
@@ -218,6 +261,8 @@ class MCPStdioTests(unittest.IsolatedAsyncioTestCase):
                         "doctor", "list_passes", "generate_config", "validate_config",
                         "inspect_audit", "compare_binaries",
                     })
+                    generation = next(t for t in listed.tools if t.name == "generate_config")
+                    self.assertIn("scoped_strings", generation.inputSchema["properties"])
                     self.assertTrue(all(tool.annotations.readOnlyHint for tool in listed.tools))
                     for name, args in (
                         ("doctor", {}),
@@ -229,6 +274,9 @@ class MCPStdioTests(unittest.IsolatedAsyncioTestCase):
                         response = await session.call_tool(name, args)
                         self.assertFalse(response.isError, response)
                         self.assertIsInstance(response.structuredContent, dict)
+                    scoped = await session.call_tool("generate_config", {"profile": "CUSTOM",
+                        "passes": {"str_aes": True}, "scoped_strings": True})
+                    self.assertTrue(scoped.structuredContent["config"]["string"]["scoped"])
                     invalid = await session.call_tool("validate_config", {"config": {"passes": {"typo": True}}})
                     self.assertFalse(invalid.structuredContent["valid"])
                     rejected = await session.call_tool("validate_config", {})

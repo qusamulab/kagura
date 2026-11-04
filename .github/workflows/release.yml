@@ -91,7 +91,7 @@ jobs:
             -DCMAKE_C_COMPILER="${KAGURA_CC}" \
             -DCMAKE_CXX_COMPILER="${KAGURA_CXX}" \
             -DKAGURA_BUILD_TESTS=OFF \
-            -DKAGURA_BITCODE_TOOLS=OFF
+            -DKAGURA_BITCODE_TOOLS=ON
 
       # ── Build ──────────────────────────────────────────────────────────────
       - name: Build
@@ -110,7 +110,7 @@ jobs:
       #     ├── include/kagura/ game_protect.h, VM.h + VMOpcodes.def
       #                         (the pass-plugin headers need LLVM and are not
       #                          part of the consumer interface)
-      #     ├── bin/            kagura-opt (when built)
+      #     ├── bin/            kagura + kagura-opt
       #     └── share/kagura/   profiles/*.json
       #
       # This used to hand-copy build-tree paths, which required the
@@ -125,6 +125,8 @@ jobs:
           BUNDLE="kagura-${VERSION}-${{ matrix.os-label }}-llvm${{ matrix.llvm }}"
 
           cmake --install build --prefix "${BUNDLE}"
+          test -x "${BUNDLE}/bin/kagura"
+          test -x "${BUNDLE}/bin/kagura-opt"
 
           # Fail loudly rather than shipping an empty archive.
           test -n "$(find "${BUNDLE}" -name 'KaguraObfuscator.*' -print -quit)" \

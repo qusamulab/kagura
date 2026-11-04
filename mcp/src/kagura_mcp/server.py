@@ -42,14 +42,15 @@ def create_server(workspace: Path, llvm_bin: Path | None = None,
     def generate_config(profile: str = "BALANCED", passes: dict[str, bool | str] | None = None,
                         tuning: dict[str, int] | None = None, protect: list[str] | None = None,
                         denylist: list[str] | None = None, allowlist: list[str] | None = None,
-                        aggressive_strings: bool = False) -> dict[str, Any]:
+                        aggressive_strings: bool = False, scoped_strings: bool = False) -> dict[str, Any]:
         """Return a validated JSON policy proposal without writing files.
 
         Choose FAST, BALANCED, STRONG or CUSTOM. Pass and tuning overrides accept
         hyphens or underscores. dwarf is the string-valued passes exception.
         protect force-selects patterns; allowlist restricts the normal selection.
         """
-        return make_config(profile, passes, tuning, protect, denylist, allowlist, aggressive_strings)
+        return make_config(profile, passes, tuning, protect, denylist, allowlist,
+                           aggressive_strings, scoped_strings)
 
     @server.tool(annotations=readonly, structured_output=True)
     def validate_config(config: dict[str, Any] | None = None, path: str | None = None) -> dict[str, Any]:

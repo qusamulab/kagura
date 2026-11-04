@@ -69,8 +69,11 @@ point in the pipeline.
 
 ### Plaintext server-side secrets
 Anything decrypted at runtime is plaintext **in registers and memory** for the
-duration of its use. Kagura minimizes the window (`kagura-str`'s decrypt-zero
-loop) but cannot eliminate it. **Sensitive secrets that must survive a memory
+duration of its use. Default XOR/AES decryption leaves plaintext in persistent
+storage after first access; aggressive mode does so at startup. Opt-in
+`-kagura-string-scoped` uses per-call stack buffers and volatile wiping only
+for eligible readonly, noncapturing, nonthrowing consumers. Unsupported uses
+remain persistent; consumer copies and registers can still contain plaintext. **Sensitive secrets that must survive a memory
 dump belong server-side**, not in the client binary.
 
 ### Cryptographic primitives

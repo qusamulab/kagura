@@ -1,11 +1,7 @@
 # Quick Start
 
-> **LLVM 22 required for `-mllvm` flags.** On LLVM 17–21, clang parses `-mllvm`
-> options before `-fpass-plugin` has loaded the plugin, so every `-kagura-*`
-> flag is rejected with *"Unknown command line argument"*. Use the shipped
-> `kagura-opt`, or `opt --load-pass-plugin=<plugin> -kagura-… -passes=…`, both
-> of which work on all supported versions. See
-> [Known issues](https://github.com/qusamulab/kagura/blob/main/docs/project/CHANGELOG.md#known-issues).
+Use the [compiler driver](compiler-driver.md) with upstream LLVM 17–22 and Python 3.9+.
+Direct clang `-fpass-plugin -mllvm` options require LLVM 22.
 
 
 Get a Kagura-protected binary in under five minutes.
@@ -26,12 +22,13 @@ Get a Kagura-protected binary in under five minutes.
 
     Each archive contains:
 
-    - `plugin/KaguraObfuscator.{dylib,so}`
-    - `runtime/libkagura_runtime.a`
+    - `bin/kagura`, `bin/kagura-opt`
+    - `lib/KaguraObfuscator.{dylib,so}`
+    - `lib/libkagura_runtime.a`
     - `include/kagura/game_protect.h`, `include/kagura/VM.h`,
-      `include/kagura/VMOpcodes.def`
+      `include/kagura/VMOpcodes.def`, `include/kagura/runtime.h`
 
-    Only those three headers are installed
+    Only those four headers are installed
     (`cmake/KaguraInstall.cmake`). The pass-plugin headers — `Options.h`,
     `Passes.h`, `Passes/`, `Utils.h` — are deliberately not shipped: they
     include LLVM headers a consumer of the binary release does not have.
@@ -43,11 +40,8 @@ Get a Kagura-protected binary in under five minutes.
 ## 2. Obfuscate a single file
 
 ```bash
-clang -fpass-plugin=path/to/KaguraObfuscator.dylib \
-      -mllvm -kagura-str \
-      -mllvm -kagura-fla \
-      -mllvm -kagura-bcf \
-      -mllvm -kagura-bcf-prob=50 \
+path/to/bin/kagura --clang=/path/to/llvm/bin/clang \
+      -kagura-str -kagura-fla -kagura-bcf -kagura-bcf-prob=50 \
       -O1 your_file.c -o your_file
 ```
 
@@ -73,9 +67,8 @@ For real projects, use a single JSON file to control every pass.
 ```
 
 ```bash
-clang -fpass-plugin=path/to/KaguraObfuscator.dylib \
-      -mllvm -kagura-config=kagura.json \
-      -O1 your_file.c -o your_file
+path/to/bin/kagura --clang=/path/to/llvm/bin/clang \
+      -kagura-config=kagura.json -O1 your_file.c -o your_file
 ```
 
 See [Configuration](../configuration.md) for the full DSL.

@@ -61,17 +61,14 @@ Built on the **New Pass Manager** (LLVM 17+). Loaded as a pass plugin via `-fpas
 
 ## Quick taste
 
-> **LLVM 22 required for `-mllvm` flags.** On LLVM 17–21, clang parses `-mllvm`
-> options before `-fpass-plugin` has loaded the plugin, so every `-kagura-*`
-> flag is rejected with *"Unknown command line argument"*. Use the shipped
-> `kagura-opt`, or `opt --load-pass-plugin=<plugin> -kagura-… -passes=…`, both
-> of which work on all supported versions. See
-> [Known issues](https://github.com/qusamulab/kagura/blob/main/docs/project/CHANGELOG.md#known-issues).
+Use the `kagura` compiler driver with a matching upstream LLVM 17–22 toolchain
+and Python 3.9+. Default builds include the driver and `kagura-opt`.
+See the [compiler driver guide](docs/getting-started/compiler-driver.md).
 
 ```bash
-clang -fpass-plugin=KaguraObfuscator.dylib \
-      -mllvm -kagura-config=kagura.json \
-      -O1 your_file.c -o your_file
+export LLVM_PREFIX=/path/to/llvm
+build/bin/kagura --config-check kagura.json
+build/bin/kagura -kagura-config=kagura.json -O1 your_file.c -o your_file
 ```
 
 ```json

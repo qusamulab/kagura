@@ -150,7 +150,13 @@ def render_catalog(profiles: dict) -> str:
         elif line.startswith(("KAGURA_FN_PASS(", "KAGURA_MOD_PASS(", "KAGURA_TUNING(")):
             raise ValueError(f"Unparsed registry row: {line}")
     return json.dumps({"_generated": MARKER, "passes": passes,
-                       "tuning": tuning, "profiles": profiles}, indent=2) + "\n"
+                       "tuning": tuning, "profiles": profiles,
+                       "string": {
+                           "aggressive": {"flag": "-kagura-string-aggressive", "default": False,
+                                          "description": "Protect short/format/global-initializer strings using startup decryption."},
+                           "scoped": {"flag": "-kagura-string-scoped", "default": False,
+                                      "description": "Use per-call plaintext buffers and wipe after proven readonly, noncapturing, nonthrowing consumers; otherwise keep persistent storage."},
+                       }}, indent=2) + "\n"
 
 
 def main() -> int:

@@ -61,6 +61,10 @@ bool isX86_64Target(const Module &M) {
   return getTargetArch(M) == TargetArch::X86_64;
 }
 
+bool isWindowsTarget(const Module &M) {
+  return Triple(getModuleTriple(M)).isOSWindows();
+}
+
 bool isWasmTarget(const Module &M) {
   TargetArch A = getTargetArch(M);
   return A == TargetArch::Wasm32 || A == TargetArch::Wasm64;

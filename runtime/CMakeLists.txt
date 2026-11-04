@@ -130,18 +130,11 @@ if(ANDROID OR (UNIX AND NOT APPLE))
 endif()
 
 # ---- Windows -----------------------------------------------------------------
-#
-# NOTE: lib/Transforms/AntiAnalysis/AntiDebug.cpp emits calls to
-# kagura_check_tracer_pid, kagura_check_inline_hooks, kagura_check_got_hooks,
-# kagura_check_sw_breakpoints, kagura_check_hw_breakpoints and
-# kagura_check_emulator on every target, but all six live in anti_debug/*.c,
-# which is POSIX-only.  -kagura-anti-debug therefore cannot link on Windows.
-# Fixing it needs Windows implementations of those six checks, which is a
-# design question (what does "inline hook detection" mean here?) rather than a
-# build-system one, so it is left as a known gap.
 if(WIN32)
   target_sources(kagura_runtime PRIVATE
     windows/anti_debug.c
+    windows/pass_checks.c
+    windows/symbol_resolution.c
     windows/integrity.c
     windows/device_key.c
     windows/etw_detection.c

@@ -68,6 +68,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <optional>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -353,7 +354,10 @@ static bool applyStringObject(const json::Object &StringJson) {
   if (auto V = StringPolicy.getBoolean("aggressive"))
     if (!setByUser(opt::StringAggressive))
       opt::StringAggressive = *V;
-  return StringPolicy.reportUnclaimed({"aggressive"});
+  if (auto V = StringPolicy.getBoolean("scoped"))
+    if (!setByUser(opt::StringScoped))
+      opt::StringScoped = *V;
+  return StringPolicy.reportUnclaimed({"aggressive", "scoped"});
 }
 
 /// Preserve the existing list semantics: retain an explicit CLI list, then
@@ -398,6 +402,110 @@ static bool applyPolicySettings(const json::Object &Policy) {
   return UnknownKeys;
 }
 
+// Strict validation is shared by compilation and kagura-opt's check-only mode.
+// Validate every flavor, even if it is not selected in this process.
+static bool validatePolicy(const json::Object &Policy, bool Root = true) {
+  bool Valid = true;
+  auto error = [&](StringRef Key, StringRef Message) {
+    errs() << "[kagura] error: policy key \"" << Key << "\": " << Message << "\n";
+    Valid = false;
+  };
+  for (const auto &KV : Policy) {
+    StringRef Key = KV.first;
+    if (Key == "profile") {
+      auto V = KV.second.getAsString();
+      if (!V || (!V->equals_insensitive("FAST") &&
+                 !V->equals_insensitive("BALANCED") &&
+                 !V->equals_insensitive("STRONG") &&
+                 !V->equals_insensitive("CUSTOM")))
+        error(Key, "expected FAST, BALANCED, STRONG or CUSTOM");
+    } else if (Key == "passes" || Key == "tuning" || Key == "string") {
+      auto *Obj = KV.second.getAsObject();
+      if (!Obj) {
+        error(Key, "expected an object");
+        continue;
+      }
+      StringMap<bool> Seen;
+      for (const auto &Setting : *Obj) {
+        std::string Canon = canonicalKey(Setting.first);
+        if (!Seen.try_emplace(Canon, true).second)
+          error(Setting.first, "duplicate hyphen/underscore aliases");
+        bool Known = false;
+        if (Key == "passes") {
+          for (const auto &Name : validPassKeys())
+            Known |= Canon == Name;
+          if (Canon == "dwarf") {
+            auto V = Setting.second.getAsString();
+            if (!V || (*V != "keep" && *V != "strip" && *V != "obfuscate"))
+              error(Setting.first, "expected keep, strip or obfuscate");
+          } else if (Known && !Setting.second.getAsBoolean()) {
+            error(Setting.first, "expected a boolean");
+          }
+        } else if (Key == "string") {
+          Known = Canon == "aggressive" || Canon == "scoped";
+          if (Known && !Setting.second.getAsBoolean())
+            error(Setting.first, "expected a boolean");
+        } else {
+#define KAGURA_TUNING(Flag, Cli, Type, Default, Desc)                          \
+          if (Canon == jsonKeyFor(Cli)) {                                     \
+            Known = true;                                                     \
+            auto V = Setting.second.getAsInteger();                           \
+            if (!V || *V < 0 || static_cast<uint64_t>(*V) >                    \
+                                    std::numeric_limits<Type>::max())         \
+              error(Setting.first, "integer outside the supported range");   \
+            else if (StringRef(Desc).contains("[0-100]") && *V > 100)         \
+              error(Setting.first, "expected a probability in [0, 100]");     \
+          }
+#include "kagura/PassRegistry.def"
+        }
+      }
+      PolicyObject Names(*Obj, Key);
+      auto Keys = Key == "passes" ? validPassKeys() : Key == "tuning"
+          ? validTuningKeys() : std::vector<std::string>{"aggressive", "scoped"};
+      for (const auto &Name : Keys)
+        (void)Names.getBoolean(Name); // Claim names; values were checked above.
+      Valid &= !Names.reportUnclaimed(Keys);
+    } else if (Key == "allowlist" || Key == "denylist" || Key == "protect") {
+      auto *Values = KV.second.getAsArray();
+      if (!Values) {
+        error(Key, "expected an array of symbol patterns");
+        continue;
+      }
+      for (const auto &Value : *Values) {
+        auto V = Value.getAsString();
+        if (!V || V->empty() || V->contains(','))
+          error(Key, "expected nonempty symbol patterns without commas");
+      }
+    } else if (Root && Key == "flavors") {
+      auto *Flavors = KV.second.getAsObject();
+      if (!Flavors) {
+        error(Key, "expected an object of policy layers");
+        continue;
+      }
+      for (const auto &Flavor : *Flavors) {
+        if (auto *Layer = Flavor.second.getAsObject())
+          Valid &= validatePolicy(*Layer, false);
+        else
+          error(Flavor.first, "expected a policy object");
+      }
+    } else if (Root && Key == "audit_out") {
+      auto V = KV.second.getAsString();
+      if (!V || V->empty())
+        error(Key, "expected a nonempty output path");
+    } else if (Root && Key == "_generated") {
+      // Profile-generator metadata is not an executable policy setting.
+    } else {
+      error(Key, "unknown root or policy-layer setting");
+    }
+  }
+  return Valid;
+}
+
+static void configReadError() {
+  if (ConfigStrict)
+    report_fatal_error("[kagura] cannot validate the policy file", false);
+}
+
 // ---- Entry point ------------------------------------------------------------
 
 void loadConfigFileIfSpecified() {
@@ -417,6 +525,7 @@ void loadConfigFileIfSpecified() {
   if (!BufOrErr) {
     errs() << "[kagura] ConfigLoader: cannot open " << ConfigPath
            << ": " << BufOrErr.getError().message() << "\n";
+    configReadError();
     return;
   }
 
@@ -425,14 +534,19 @@ void loadConfigFileIfSpecified() {
   if (!JsonOrErr) {
     errs() << "[kagura] ConfigLoader: JSON parse error in " << ConfigPath
            << ": " << toString(JsonOrErr.takeError()) << "\n";
+    configReadError();
     return;
   }
 
   auto *Root = JsonOrErr->getAsObject();
   if (!Root) {
     errs() << "[kagura] ConfigLoader: root must be a JSON object\n";
+    configReadError();
     return;
   }
+
+  if (ConfigStrict && !validatePolicy(*Root))
+    report_fatal_error("[kagura] -kagura-config-strict: invalid policy file", false);
 
   // Select the flavor layer, which is applied after the base policy.
   const char *FlavorEnv = std::getenv("KAGURA_FLAVOR");

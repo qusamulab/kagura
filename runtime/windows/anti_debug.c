@@ -35,6 +35,9 @@
 #endif
 #include <windows.h>
 #include <tlhelp32.h>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
 
 /* NtQueryInformationProcess — not in standard headers */
 typedef LONG (WINAPI *PFN_NtQueryInformationProcess)(
@@ -116,18 +119,25 @@ void kagura_nt_debug_port_check(void) {
  * Reading the PEB directly avoids any user-mode API that can be hooked.
  */
 int kagura_check_heap_flags(void) {
-#if defined(_M_X64) || defined(__x86_64__)
-    /* PEB is at GS:[0x60] on x64 */
-    BYTE *peb;
+    const BYTE *peb;
+    DWORD ntGlobalFlag;
+#if defined(_MSC_VER) && defined(_M_X64)
+    peb = (const BYTE *)__readgsqword(0x60);
+#elif defined(_MSC_VER) && defined(_M_IX86)
+    peb = (const BYTE *)(uintptr_t)__readfsdword(0x30);
+#elif defined(__x86_64__)
     __asm__ volatile ("movq %%gs:0x60, %0" : "=r"(peb));
-    DWORD ntGlobalFlag = *(DWORD *)(peb + 0xBC);
-#elif defined(_M_IX86) || defined(__i386__)
-    /* PEB is at FS:[0x30] on x86 */
-    BYTE *peb;
+#elif defined(__i386__)
     __asm__ volatile ("movl %%fs:0x30, %0" : "=r"(peb));
-    DWORD ntGlobalFlag = *(DWORD *)(peb + 0x68);
 #else
-    return 0; /* unsupported architecture */
+    return 0;
+#endif
+#if defined(_M_X64) || defined(__x86_64__)
+    memcpy(&ntGlobalFlag, peb + 0xBC, sizeof(ntGlobalFlag));
+#elif defined(_M_IX86) || defined(__i386__)
+    memcpy(&ntGlobalFlag, peb + 0x68, sizeof(ntGlobalFlag));
+#else
+    return 0;
 #endif
     return (ntGlobalFlag & 0x70) ? 1 : 0;
 }

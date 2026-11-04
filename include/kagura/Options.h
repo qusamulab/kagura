@@ -52,6 +52,9 @@ extern llvm::cl::opt<bool> VTP;
 /// decryption. Off by default; applies to STR, STRAES and WSTR.
 extern llvm::cl::opt<bool> StringAggressive;
 
+/// Use per-call plaintext buffers for proven noncapturing, readonly consumers.
+extern llvm::cl::opt<bool> StringScoped;
+
 // ---- Build-system / DX flags ----
 
 /// Auto-select obfuscation passes per function based on risk score.

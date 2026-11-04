@@ -11,7 +11,7 @@ linking `libkagura_runtime.a` (built at `build/runtime/libkagura_runtime.a`):
 | AntiTamper | `-kagura-tamper` | `kagura_self_check`, `kagura_tamper_detected`, `kagura_runtime_hash_check` |
 | BasicBlockChecksum | `-kagura-bbcheck` | `kagura_bb_check`, `kagura_on_tamper_detected` |
 | Telemetry | `-kagura-telemetry` | `kagura_telemetry_event` |
-| CallIndirection | `-kagura-ci` | `kagura_rtld_default_handle`, plus `dlsym` from the system |
+| CallIndirection | `-kagura-ci` | POSIX: `kagura_rtld_default_handle` + `dlsym`; Windows: `kagura_windows_resolve_symbol` |
 | PointerAuth | `-kagura-pac` | `kagura_random_u64` |
 | JNIObfuscation | `-kagura-jni` | `kagura_jni_get_env`, `kagura_jni_find_class`, `kagura_jni_register_native` |
 | ObjCObfuscation | `-kagura-objc` | `kagura_objc_register_remap` |
@@ -127,3 +127,25 @@ runtime/
 ├── windows/      IsDebuggerPresent, NtQueryInformationProcess, PE integrity
 └── game/         Anti-cheat, IL2CPP protection, telemetry
 ```
+
+## Windows pass helpers
+
+AntiDebug's six entry points use Windows debugger APIs, API-entry hook and
+breakpoint probes, normal IAT validation, current-thread debug registers on
+x86/x64, and known emulator indicators. They are bounded heuristics, not an
+exhaustive detector. IAT checking skips delay imports and bound imports without
+an original name table. Hardware breakpoint checking returns no detection on
+unsupported architectures.
+
+CallIndirection resolves `dllimport` functions from already loaded modules with
+`GetProcAddress`; it does not load DLLs. Ordinary external declarations,
+including static CRT and other translation-unit definitions, remain direct
+calls because their names need not be exported. Libraries must remain loaded
+while cached pointers are used. Missing symbols invoke the tamper-response hook.
+Windows inline-hook probes recognize x64 relative/indirect entry jumps; software
+breakpoint probes cover x86/x64 INT3 and ARM64 BRK at selected API entries.
+
+The original import operand retains the DLL dependency and identifies its
+exporting module, preventing collisions between DLLs with the same symbol
+name. Ordinal-only exports and import-library aliases retain the loader
+address if a named lookup is unavailable. The PE import table remains visible.

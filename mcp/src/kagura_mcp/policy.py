@@ -58,7 +58,7 @@ def validate_config(config: object) -> dict:
             if not isinstance(profile, str) or profile.upper() not in {*data["profiles"], "CUSTOM"}:
                 error(f"{path}.profile", "Expected FAST, BALANCED, STRONG or CUSTOM.")
         for section, known in (("passes", data["passes"]), ("tuning", data["tuning"]),
-                               ("string", {"aggressive": {}})):
+                               ("string", data["string"])):
             if section not in obj:
                 continue
             values = obj[section]
@@ -124,7 +124,7 @@ def load_config(text: str) -> object:
 def generate_config(profile: str = "BALANCED", passes: dict | None = None,
                     tuning: dict | None = None, protect: list[str] | None = None,
                     denylist: list[str] | None = None, allowlist: list[str] | None = None,
-                    aggressive_strings: bool = False) -> dict:
+                    aggressive_strings: bool = False, scoped_strings: bool = False) -> dict:
     data = catalog()
     profile = profile.upper()
     if profile not in {*data["profiles"], "CUSTOM"}:
@@ -143,7 +143,9 @@ def generate_config(profile: str = "BALANCED", passes: dict | None = None,
         if values is not None:
             config[key] = values
     if aggressive_strings:
-        config["string"] = {"aggressive": True}
+        config.setdefault("string", {})["aggressive"] = True
+    if scoped_strings:
+        config.setdefault("string", {})["scoped"] = True
     checked = validate_config(config)
     if not checked["valid"]:
         raise ValueError(json.dumps(checked["errors"]))
@@ -151,5 +153,7 @@ def generate_config(profile: str = "BALANCED", passes: dict | None = None,
     enabled = config.get("passes", {})
     if any(enabled.get(p) for p in ("anti_debug", "str_aes", "vm", "tamper", "ci", "telemetry")):
         flags.append("Link kagura_runtime for the enabled runtime-dependent passes.")
+    if scoped_strings:
+        flags.append("Scoped buffers require readonly, noncapturing, nonthrowing consumers; escaped or unsupported literals remain persistent.")
     flags.append("Verify target support and measure overhead; this policy does not prove protection strength.")
     return {"config": config, "notes": flags}

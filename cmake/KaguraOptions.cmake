@@ -31,7 +31,7 @@ option(KAGURA_BUILD_FUZZ
        "Build the libFuzzer targets (requires a clang with -fsanitize=fuzzer)" OFF)
 
 option(KAGURA_BITCODE_TOOLS
-       "Build kagura-opt, which applies the passes to .bc/.ll without clang" OFF)
+       "Build kagura-opt and the kagura compiler driver" ON)
 
 # ---- Compatibility -----------------------------------------------------------
 

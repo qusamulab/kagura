@@ -96,6 +96,7 @@ plugins:
             Home: ホーム
             Getting Started: はじめに
             Quick Start: クイックスタート
+            Compiler Driver: コンパイラドライバ
             Build from Source: ソースからビルド
             Requirements: 動作要件
             Passes: パス
@@ -138,6 +139,7 @@ nav:
   - Getting Started:
       - getting-started/index.md
       - Quick Start: getting-started/quick-start.md
+      - Compiler Driver: getting-started/compiler-driver.md
       - Build from Source: getting-started/build-from-source.md
       - Requirements: getting-started/requirements.md
   - Passes:

@@ -70,3 +70,20 @@ set_target_properties(kagura-opt PROPERTIES
 add_dependencies(kagura-opt KaguraObfuscator)
 
 install(TARGETS kagura-opt DESTINATION bin)
+
+# Keep the build-tree and installed entry points identical. Windows uses a
+# command launcher so Python scripts do not depend on file associations.
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+if(WIN32)
+  configure_file(kagura.py "${CMAKE_BINARY_DIR}/bin/kagura.py" COPYONLY)
+  file(WRITE "${CMAKE_BINARY_DIR}/bin/kagura.cmd"
+       "@echo off\r\npython \"%~dp0kagura.py\" %*\r\n")
+  install(PROGRAMS kagura.py DESTINATION bin)
+  install(FILES "${CMAKE_BINARY_DIR}/bin/kagura.cmd" DESTINATION bin)
+else()
+  configure_file(kagura.py "${CMAKE_BINARY_DIR}/bin/kagura" COPYONLY)
+  file(CHMOD "${CMAKE_BINARY_DIR}/bin/kagura"
+       PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
+                   WORLD_READ WORLD_EXECUTE)
+  install(PROGRAMS kagura.py DESTINATION bin RENAME kagura)
+endif()
