@@ -27,6 +27,7 @@ REPO = Path(__file__).resolve().parents[2]
 REGISTRY = REPO / "include" / "kagura" / "PassRegistry.def"
 PROFILES = REPO / "lib" / "Transforms" / "Profiles.def"
 OUT_DIR = REPO / "integration" / "profiles"
+CATALOG = REPO / "mcp" / "src" / "kagura_mcp" / "catalog.json"
 
 MARKER = "generated from lib/Transforms/Profiles.def by scripts/ci/gen-profiles.py"
 
@@ -124,6 +125,34 @@ def render(profile: str, entry: dict) -> str:
     return "\n".join(lines)
 
 
+def render_catalog(profiles: dict) -> str:
+    """Ship the same registry with Python wheels, without needing the C++ tree."""
+    passes, tuning = {}, {}
+    pass_row = re.compile(
+        r'^KAGURA_(FN|MOD)_PASS\(\s*\w+\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"'
+    )
+    tuning_row = re.compile(
+        r'^KAGURA_TUNING\(\s*\w+\s*,\s*"([^"]+)"\s*,\s*(\w+)\s*,\s*(\d+)\s*,\s*"([^"]+)"'
+    )
+    for line in REGISTRY.read_text().splitlines():
+        if match := pass_row.match(line):
+            level, cli, description = match.groups()
+            passes[json_key_for(cli)] = {
+                "flag": "-" + cli, "description": description,
+                "scope": "function" if level == "FN" else "module",
+            }
+        elif match := tuning_row.match(line):
+            cli, kind, default, description = match.groups()
+            tuning[json_key_for(cli)] = {
+                "flag": "-" + cli, "type": kind,
+                "default": int(default), "description": description,
+            }
+        elif line.startswith(("KAGURA_FN_PASS(", "KAGURA_MOD_PASS(", "KAGURA_TUNING(")):
+            raise ValueError(f"Unparsed registry row: {line}")
+    return json.dumps({"_generated": MARKER, "passes": passes,
+                       "tuning": tuning, "profiles": profiles}, indent=2) + "\n"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
@@ -137,9 +166,12 @@ def main() -> int:
     profiles = read_profiles(flag_keys)
 
     stale = []
+    outputs = {CATALOG: render_catalog(profiles)}
     for profile, entry in profiles.items():
         path = OUT_DIR / f"{profile.lower()}.json"
-        want = render(profile, entry)
+        outputs[path] = render(profile, entry)
+
+    for path, want in outputs.items():
 
         # Reject a table that produces invalid JSON before it reaches a build.
         json.loads(want)
@@ -150,6 +182,7 @@ def main() -> int:
         if args.check:
             stale.append((path, have, want))
         else:
+            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(want)
             print(f"wrote {path.relative_to(REPO)}")
 
@@ -172,7 +205,7 @@ def main() -> int:
         return 1
 
     if args.check:
-        print(f"{len(profiles)} profiles up to date")
+        print(f"{len(profiles)} profiles and Python catalog up to date")
     return 0
 
 

@@ -6,13 +6,14 @@ a repo self-check.
 
 ## `cli/` — tools you run against your own build
 
-Nothing here reads the kagura source tree; they take a binary, a config, or a
-customer list and produce an artefact. These are the parts of kagura an
-integrator uses day to day.
+They take a binary, a config, or a customer list and produce an artefact.
+`kagura-cli.py` and `kagura-diff.py` share their implementation with the Python
+package under `mcp/src` (no MCP SDK needed for these scripts). Keep that directory
+alongside the scripts, or install `./mcp` when distributing the scripts separately.
 
 | Script | What it does |
 |:-------|:-------------|
-| `kagura-cli.py` | Generate a JSON policy file; read back an audit log |
+| `kagura-cli.py` | Generate or lint a JSON policy file; read back an audit log |
 | `kagura-diff.py` | Section / symbol / string diff between two builds of the same target |
 | `kagura-strip.py` | Post-build hygiene: strip LC_UUID, build IDs and other residual metadata the IR passes cannot reach |
 | `variant_generator.py` | Per-customer / per-app config + key material, so one leaked key does not unlock every build |
@@ -38,7 +39,7 @@ Run these before opening a PR; CI runs them too.
 |:-------|:-------------|
 | `differential-test.sh` | Compiles each `tests/pass-inputs/` subject plain and obfuscated, runs both, asserts identical stdout |
 | `verify-reproducible.sh` | Compiles twice with a fixed `-kagura-seed` and asserts byte-identical IR |
-| `gen-profiles.py` | Regenerates `integration/profiles/*.json` from `lib/Transforms/Profiles.def`; `--check` fails if they are stale |
+| `gen-profiles.py` | Regenerates `integration/profiles/*.json` and the Python catalog from the registry/profile definitions; `--check` fails if stale |
 
 `differential-test.sh` and `verify-reproducible.sh` need a built plugin
 (`bash build.sh` first) and take the plugin path as `$1` if it is not at

@@ -57,6 +57,7 @@ Built on the **New Pass Manager** (LLVM 17+). Loaded as a pass plugin via `-fpas
 | Xcode / Gradle / Unity / Unreal / Bazel / CMake / CocoaPods / SPM | [Integration](https://qusamulab.github.io/kagura/integration/) |
 | `Protected<T>` for HP / currency / etc. | [Game Protection](https://qusamulab.github.io/kagura/game-protection/) |
 | Differential, reproducible, angr / Ghidra / Frida | [Testing & Evaluation](https://qusamulab.github.io/kagura/testing/) |
+| AI client policy authoring & build inspection | [kagura-mcp](mcp/README.md) |
 
 ## Quick taste
 

@@ -20,8 +20,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check integration/profiles/*.json
+      - name: Check profiles and Python catalog
         run: python3 scripts/ci/gen-profiles.py --check
+
+  python-tools:
+    name: MCP and Python tools (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+        python: ['3.10', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install ./mcp
+      - run: python -m unittest discover -s mcp/tests -v
 
   # ---- Assertions build ---------------------------------------------------
   # Every other job builds Release, which defines NDEBUG and compiles assert()

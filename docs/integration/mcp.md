@@ -1,0 +1,1 @@
+--8<-- "mcp/README.md"
