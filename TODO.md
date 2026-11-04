@@ -1,26 +1,37 @@
-# TODO — Unimplemented Items
+# TODO — Remaining Work
 
-Features that were not implemented in Phase 4 and are candidates for future work.
+Only unfinished work belongs here; remove completed items instead of keeping struck-through rows. Status reflects the current working tree, including changes not yet committed or released.
 
-| ID | Feature | Priority | Notes |
-|:---|:--------|:---------|:------|
-| — | White-box cryptography | Low | AES/TDES white-box key encoding so the cipher key is never exposed in plaintext even under full memory disclosure |
-| — | Device farm tests (iOS/Android real devices) | Low | Run the integration test suite on physical iOS and Android devices via a cloud device farm (e.g. Firebase Test Lab, AWS Device Farm) |
-| — | ML/heuristic-based protection target inference | Low | Use static features (cyclomatic complexity, symbol names, call graph centrality) to recommend which functions to protect |
-| — | Machine code / backend-level obfuscation | Low | Apply obfuscation at the assembler / MachineFunction level (after instruction selection) for deeper resistance to IR-level static analysis |
-| — | MSVC ABI support in VTableProtection | Med | Handle `??_7` / `??_R` MSVC naming conventions in addition to Itanium `_ZTV`/`_ZTS`/`_ZTI`; required for Windows target support |
-| — | Regression corpus expansion | Med | 8 entries in tests/regression/corpus/ (crash_00004, eh_bbr, eh_mvo_pe, empty_function, fsplit_phi_successor, phi_heavy_fla, vararg_passthrough, vm_large_function). EH, PHI-heavy, vararg, empty and large-function shapes are now covered; remaining gap is per-pass coverage — most passes still have no dedicated corpus entry |
-| ~~A.1~~ | ~~Windows/MSVC build support~~ | ~~High~~ | ~~Implemented: MSVC/Clang-CL CMake flags, Windows CI job (LLVM 17/19), runtime/windows/ stubs (anti_debug, integrity, tamper_response, device_key), vtp-msvc.ll lit test~~ |
-| ~~A.2~~ | ~~Swift / Kotlin Native string encryption~~ | ~~High~~ | ~~Implemented: WideStringEncryptionPass extended to detect and XOR-encrypt Swift ($s mangled) and Kotlin Native (.kotlin/kfun: prefix) string constants via module constructors (priority -1 for Swift, 0 for Kotlin)~~ |
-| ~~A.3~~ | ~~BCF opaque predicate diversification~~ | ~~High~~ | ~~Implemented: 7 variants (OR/XOR/ADD complement, consecutive-int products, OR-odd, bit round-trip), selected at random per injection site~~ |
-| ~~D.1~~ | ~~Strict JSON policy validation~~ | ~~High~~ | ~~Implemented: `ConfigLoader.cpp` folds `-` to `_` on read so `"anti-debug"` and `"anti_debug"` are both accepted, and every key in `"passes"` / `"tuning"` that no `PassRegistry.def` row claims is now reported by name, with the nearest valid key or the command-line-only flag to use instead. `-kagura-config-strict` turns those warnings into a build failure~~ |
-| D.5 | Windows implementations for the anti-debug and call-indirection runtime | High | `-kagura-anti-debug` emits six `kagura_check_*` symbols and `-kagura-ci` emits `kagura_rtld_default_handle`; all live in POSIX-only translation units, so neither pass links on Windows. Long documented for anti-debug in `runtime/CMakeLists.txt`, but invisible in CI until the test-registration fix — the Windows job registered four tests. `link_kagura-anti-debug` and `link_kagura-ci` are now marked `WILL_FAIL` there, so implementing either turns the job red and the marker is what gets deleted. Needs `NtQueryInformationProcess`/`CheckRemoteDebuggerPresent` for the checks and `GetModuleHandle`/`GetProcAddress` for the thunks |
-| D.1a | `-kagura-config-check` | Medium | Validate a policy file without compiling anything. `-kagura-config-strict` covers the CI case, but it still needs a translation unit to run against; a check-only mode would let an editor or pre-commit hook lint the file directly |
-| D.2 | Wire the resistance evaluation into CI | High | `tests/redteam/`, `tests/symbolic_exec/`, `tests/decompiler_eval/` and `tests/frida_resistance/` all exist and none is invoked by any workflow, so nothing checks that the numbers in `docs/security-model.md` still hold. `differential-test.sh` and `verify-reproducible.sh` are now in the matrix (and were both non-functional until then — see CHANGELOG); these are the remaining gap |
-| D.3 | A `kagura` driver wrapper | Medium | `clang -fpass-plugin=… -mllvm -kagura-…` is rejected below LLVM 22 (see Known issues), and that is the invocation the README leads with. A thin driver that runs `clang -emit-llvm` → `opt --load-pass-plugin` → `clang` would make the documented entry point work everywhere, and would give `kagura-opt` a reason to be built by default |
-| D.4 | Re-encrypt strings after use | Medium | `-kagura-str` / `-kagura-str-aes` decrypt once on first access behind a lazy guard, so after startup the whole table is resident in plaintext and a single memory dump recovers everything. Encrypting again after the consuming call — or decrypting into a caller-scoped buffer for the XOR path as the AES path already does — would make a dump catch only what is in flight |
-| B.1 | Decompiler resistance scoring | Medium | Automate Binary Ninja / Ghidra analysis to produce a quantitative resilience score; feed back into AutoSelectPass |
-| B.2 | CallIndirection hot-path cache | Medium | Resolution happens on every call; a per-site cache would reduce overhead on hot paths |
-| B.3 | Deterministic obfuscation sessions | Low | Given the same seed key and IR, produce a bit-identical output binary to ensure CI reproducibility. `scripts/ci/verify-reproducible.sh` now runs in the CI matrix and passes at the IR level across LLVM 17–22; what remains is asserting it end to end on the linked binary |
-| ~~C.1~~ | ~~WebAssembly backend support~~ | ~~Low~~ | ~~Implemented: `isWasmTarget()` helper + early-exit guards in AntiDebug, PointerAuth, AntiTamper, VMObfuscation, ControlFlowFlattening; AutoSelect skips FLA on Wasm; LIT test wasm-pass-filter.ll~~ |
-| C.2 | Automated MBA expression generation | Low | Current SUB uses fixed patterns; auto-generate Z3-verified equivalent expressions for richer MBA substitution |
+## Current focus
+
+| ID | Feature | Priority | Remaining work |
+|:---|:--------|:---------|:---------------|
+| D.5 | Windows anti-debug and call-indirection runtime | High | The existing Windows debugger probes do not export the six `kagura_check_*` symbols emitted by `AntiDebug.cpp`. Implement those entry points, and replace CallIndirection's POSIX `dlsym` / `kagura_rtld_default_handle` path with Windows module/symbol resolution. Remove the corresponding `WILL_FAIL` markers in `tests/CMakeLists.txt` once the Windows link tests pass. |
+| D.3 | A `kagura` compiler driver | Medium | Provide a source-to-binary entry point using `clang -emit-llvm` → `opt --load-pass-plugin` or statically linked `kagura-opt` → `clang`. Preserve compile/link arguments and tool failures, support the intended target/toolchain, and reuse the standalone policy validator. Include the required tools in default builds and release bundles; `KAGURA_BITCODE_TOOLS` is currently off in both the default configuration and the release workflow. |
+| D.4 | Limit decrypted-string lifetime | Medium | XOR and AES strings currently use persistent storage: default mode decrypts on first access; aggressive mode decrypts at startup. Add an opt-in scoped-buffer / wipe or re-encryption path only where the consumer's lifetime is known. Preserve escaped/returned pointers, pointer identity, exception cleanup and concurrent readers. AES also uses a persistent global buffer, so it does not already solve this. Correct the decrypt-zero claims in `docs/security-model.md` and stale examples in `docs/passes/before-after.md`. |
+
+## Additional implementation gaps
+
+These are missing runtime behavior or inaccurate capability claims, independent of resistance scoring or evaluation automation.
+
+| ID | Feature | Priority | Evidence and remaining work |
+|:---|:--------|:---------|:----------------------------|
+| D.6 | Real code-integrity verification for AntiTamper / BBChecksum | High | `runtime/core/self_check.c::kagura_runtime_hash_check` checks a few entry-instruction patterns and suspicious symbol names; it does not compare a function's machine-code hash, and the IR hash is only mixed into an unused volatile tag. `runtime/core/bb_check.c` always returns intact. Design trusted post-codegen byte ranges, expected hashes and stable identifiers, accounting for relocations/linker transforms, then verify actual code and exercise both clean and patched binaries. Until then, correct the whole-function-hashing claims in `docs/security-model.md`, `docs/passes/anti-analysis.md`, their Japanese counterparts where present, and pass comments. |
+| D.7 | VTableProtection runtime enforcement | Medium | `ABI/VTableProtection.cpp::tagVTable` records `kagura.vtables` metadata but does not tag or authenticate vtable entries. `kagura_vtable_check` is referenced only in comments, with no implementation or call sites; PointerAuth currently handles scalar function-pointer globals, not vtable arrays. Implement a runtime-consumable table and verification or compatible pointer authentication for supported ABI layouts, preserving virtual dispatch and RTTI behavior. Correct comments/header claims until enforcement exists. MSVC name recognition and TypeDescriptor-name encryption are already implemented and are not part of this gap. |
+| D.8 | Windows ETW detection implementation and documentation | Low | `runtime/windows/etw_detection.c::etw_query_providers` returns 0 even with `KAGURA_ETW_FULL`; the provider GUID list is explicitly marked as placeholders. Implement real provider enumeration and verify the identifiers before treating the result as detection. Correct `docs/runtime.md` / `docs/runtime.ja.md`, which currently claim the define enables a real implementation. |
+
+## Future candidates
+
+| ID | Feature | Priority | Remaining work |
+|:---|:--------|:---------|:---------------|
+| — | Regression corpus expansion | Medium | The corpus has 8 cases covering EH, PHI-heavy, vararg, empty and large-function shapes. Add dedicated cases for passes that still lack them. |
+| — | Advanced protection-target inference | Low | `AutoSelect.cpp` already scores cyclomatic complexity, instruction count, string references, allocas and external calls. Remaining extensions are symbol-name / call-graph features and optionally ML-based recommendations; do not reimplement the existing heuristic selection. |
+| — | Machine code / backend-level obfuscation | Low | Add assembler / MachineFunction-level transforms after instruction selection. Coordinate any code-range metadata work with D.6. |
+| — | White-box cryptography | Low | Investigate white-box AES/TDES key encoding and its security limits against memory disclosure and key extraction. |
+| — | Device farm tests (iOS/Android real devices) | Low | Run representative integration tests on physical devices through a cloud device farm. |
+| B.3 | End-to-end deterministic builds | Low | `scripts/ci/verify-reproducible.sh` already checks a subset of passes at the IR level. Extend coverage and assert byte-identical linked binaries for fixed inputs, seed and toolchain, accounting for paths and linker metadata. |
+| C.2 | Automated MBA expression generation | Low | Replace or extend fixed substitution patterns with automatically generated, Z3-verified equivalent expressions. |
+
+## Out of current scope
+
+Resistance-evaluation CI integration (D.2) and decompiler-score feedback into AutoSelect (B.1) are deferred by project choice. Existing redteam, symbolic-execution, Ghidra and Frida tools remain available for manual use.
