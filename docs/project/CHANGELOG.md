@@ -29,8 +29,11 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-- Windows debugger PEB access supports MSVC intrinsics; ordinary COFF external
-  calls retain linker resolution instead of attempting unexported symbol lookup.
+- Windows debugger PEB access supports MSVC intrinsics; AntiDebug omits POSIX
+  ptrace startup on Windows. Hardware detection uses a real CPU trap context.
+- Preserve selected MSVC CRT linkage across split driver stages; safely scoped
+  Windows pooled COMDAT literals can now be transformed.
+- Ordinary COFF external calls retain linker resolution instead of attempting unexported symbol lookup.
 - Strict native policy validation rejects invalid types/ranges and unused
   malformed flavors, including file/JSON errors; check-only mode writes no IR.
 - Correct plaintext-lifetime claims: default XOR/AES buffers remain persistent;

@@ -98,7 +98,8 @@ CLI では文字列パスのフラグと併せて `-kagura-string-aggressive` �
 volatile なゼロクリアで消去します。呼び出し箇所・再帰呼び出し・スレッドごとに
 独立した領域を使います。
 
-対象は 4096 バイト以下の private/internal な `unnamed_addr` 文字列で、すべての
+対象は 4096 バイト以下の private/internal な `unnamed_addr` 文字列
+（Windows の dso-local `linkonce_odr` プール文字列も含む）で、すべての
 利用が直接の呼び出し引数（定数 GEP・cast を含む）である必要があります。
 引数は readonly かつ非キャプチャ、呼び出しは非例外であることが必要です。
 アドレスに意味がある領域、外部への保存、ポインタの返却・比較、EH、operand bundle、

@@ -26,9 +26,18 @@ static bool refersToString(const Value *V, const GlobalVariable *GV) {
   return V == GV;
 }
 
+// MSVC pools literals into discardable COMDAT definitions rather than private
+// globals. An unnamed-address, dso-local linkonce_odr literal can disappear
+// once every reference in this module has been replaced with a scoped buffer.
+static bool scopedStorage(const GlobalVariable *GV) {
+  return GV->hasLocalLinkage() ||
+         (isWindowsTarget(*GV->getParent()) && GV->hasLinkOnceODRLinkage() &&
+          GV->isDSOLocal() && !GV->hasDLLExportStorageClass());
+}
+
 static bool scopedCalls(const GlobalVariable *GV,
                         SmallVectorImpl<CallInst *> &Calls) {
-  if (!GV->hasGlobalUnnamedAddr() || !GV->hasLocalLinkage() || GV->hasSection() || GV->isThreadLocal() ||
+  if (!GV->hasGlobalUnnamedAddr() || !scopedStorage(GV) || GV->hasSection() || GV->isThreadLocal() ||
       GV->getAddressSpace() != 0 || GV->isExternallyInitialized())
     return false;
   auto *Data = dyn_cast<ConstantDataArray>(GV->getInitializer());
@@ -287,15 +296,16 @@ std::vector<GlobalVariable *> collectStringGlobals(Module &M,
   for (auto &GV : M.globals()) {
     if (!GV.isConstant() || !GV.hasInitializer())
       continue;
-    if (StrictLinkage && GV.getLinkage() != GlobalValue::PrivateLinkage &&
-        GV.getLinkage() != GlobalValue::InternalLinkage)
+    if (StrictLinkage && !GV.hasLocalLinkage() &&
+        !(opt::StringScoped && hasOnlyScopedStringUses(&GV)))
       continue;
     auto *CDA = dyn_cast<ConstantDataArray>(GV.getInitializer());
     if (!CDA || !CDA->isString())
       continue;
     StringRef S = CDA->getAsString();
     if (opt::StringAggressive) {
-      if (!S.empty() && canProtectStringAtStartup(GV))
+      if (!S.empty() && ((opt::StringScoped && hasOnlyScopedStringUses(&GV)) ||
+                         canProtectStringAtStartup(GV)))
         Result.push_back(&GV);
       continue;
     }

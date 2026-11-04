@@ -207,7 +207,8 @@ PreservedAnalyses StringEncryptionPass::run(Module &M,
   auto *Int8Ty = Type::getInt8Ty(Ctx);
 
   for (auto *GV : Strings) {
-    if (!opt::StringAggressive && !hasOnlyGuardableUses(GV))
+    if (!(opt::StringScoped && hasOnlyScopedStringUses(GV)) &&
+        !opt::StringAggressive && !hasOnlyGuardableUses(GV))
       continue;
 
     auto *CDA = dyn_cast<ConstantDataArray>(GV->getInitializer());

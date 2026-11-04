@@ -158,8 +158,8 @@ before each consuming call; a volatile zeroing operation wipes it after the
 call returns. Each call site and invocation has its own buffer, including
 recursive and concurrent invocations.
 
-Eligibility requires private/internal `unnamed_addr` storage of at most 4096
-bytes and only direct call-argument uses, optionally through constant GEPs or
+Eligibility requires private/internal `unnamed_addr` storage (or dso-local
+Windows `linkonce_odr` pooled literals) of at most 4096 bytes and only direct call-argument uses, optionally through constant GEPs or
 casts. Each affected argument must be readonly and noncapturing, and the call
 must be nonthrowing. Address-significant storage, escapes, returned pointers,
 comparisons, instruction-valued GEPs, EH functions, operand bundles and

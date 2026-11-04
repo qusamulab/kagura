@@ -71,6 +71,15 @@ def runtime_libraries(directory, selections, args):
     if runtime and not cross:
         libraries += ["-lws2_32", "-limagehlp", "-lbcrypt"] if os.name == "nt" else (
             ["-ldl"] if sys.platform.startswith("linux") else [])
+    # clang's GNU-style MSVC linker driver still adds libcmt explicitly for
+    # object-only links, even with -fms-runtime-lib=dll. Override that default
+    # to match the frontend's _DLL declarations and .drectve metadata.
+    if os.name == "nt":
+        mode = next((a.partition("=")[2] for a in reversed(args)
+                     if a.startswith("-fms-runtime-lib=")), "static")
+        crt = {"dll": "msvcrt", "dll_dbg": "msvcrtd", "static_dbg": "libcmtd"}.get(mode)
+        if crt:
+            libraries += ["-Xlinker", "/nodefaultlib:libcmt", "-Xlinker", "/defaultlib:" + crt]
     return libraries
 
 

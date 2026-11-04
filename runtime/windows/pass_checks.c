@@ -196,22 +196,37 @@ int kagura_check_sw_breakpoints(void) {
     return 0;
 }
 
-/* GetThreadContext on the current running thread is not valid. A deliberate,
- * continuable exception supplies this thread's actual debug-register context
- * without suspending it or creating a thread while a DLL loader lock is held. */
+/* A real CPU breakpoint trap supplies this thread's debug registers. A
+ * software RaiseException context does not contain them, and GetThreadContext
+ * on the current running thread is not valid. No helper thread or suspension
+ * is needed, including when the probe runs from a DLL constructor. */
 #if defined(_M_X64) || defined(_M_IX86) || defined(__x86_64__) || defined(__i386__)
 #if defined(_MSC_VER)
-static __declspec(thread) int hardware_detected;
+static __declspec(thread) volatile int hardware_detected;
+static __declspec(thread) volatile int hardware_active;
 #else
-static _Thread_local int hardware_detected;
+static _Thread_local volatile int hardware_detected;
+static _Thread_local volatile int hardware_active;
 #endif
-#define KAGURA_CONTEXT_EXCEPTION ((DWORD)0xe0424b47U)
 static LONG CALLBACK inspect_context(EXCEPTION_POINTERS *info) {
-    if (info->ExceptionRecord->ExceptionCode != KAGURA_CONTEXT_EXCEPTION)
+    if (!hardware_active || info->ExceptionRecord->ExceptionCode != EXCEPTION_BREAKPOINT)
         return EXCEPTION_CONTINUE_SEARCH;
     hardware_detected = (info->ContextRecord->Dr7 & 0xffU) != 0;
+    // Windows reports the faulting INT3 address; resume after its one byte.
+#if defined(_M_X64) || defined(__x86_64__)
+    if (info->ContextRecord->Rip == (DWORD64)(uintptr_t)info->ExceptionRecord->ExceptionAddress)
+        ++info->ContextRecord->Rip;
+#else
+    if (info->ContextRecord->Eip == (DWORD)(uintptr_t)info->ExceptionRecord->ExceptionAddress)
+        ++info->ContextRecord->Eip;
+#endif
     return EXCEPTION_CONTINUE_EXECUTION;
 }
+#if defined(_MSC_VER)
+__declspec(noinline) static void hardware_trap(void) { __debugbreak(); }
+#else
+__attribute__((noinline)) static void hardware_trap(void) { __asm__ volatile("int3" ::: "memory"); }
+#endif
 #endif
 
 int kagura_check_hw_breakpoints(void) {
@@ -220,7 +235,9 @@ int kagura_check_hw_breakpoints(void) {
     if (!handler)
         return 0;
     hardware_detected = 0;
-    RaiseException(KAGURA_CONTEXT_EXCEPTION, 0, 0, NULL);
+    hardware_active = 1;
+    hardware_trap();
+    hardware_active = 0;
     RemoveVectoredExceptionHandler(handler);
     return hardware_detected;
 #else

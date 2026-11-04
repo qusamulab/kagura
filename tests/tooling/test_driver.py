@@ -113,7 +113,7 @@ class DriverTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "Windows DLL-import execution")
     def test_windows_call_indirection_keeps_loader_dependencies(self):
         self.write("main.c", '#include <windows.h>\n#include <stdio.h>\nint main(void){puts("windows indirection");return GetCurrentProcessId()==0;}\n')
-        self.invoke("-O1", "-kagura-ci", "main.c", "-o", "indirect-program")
+        self.invoke("-O1", "-kagura-ci", "-kagura-anti-debug", "main.c", "-o", "indirect-program")
         result = subprocess.run([str(self.root / "indirect-program")],
                                 capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
