@@ -13,7 +13,8 @@ Usage:
 
 Sub-commands
 ------------
-config-gen    Generate a kagura.json policy file (4.6.1 Config DSL).
+config-gen    Generate a kagura.json policy file from the shared registry.
+config-check  Lint a policy without compiling or loading LLVM.
 audit-view    Pretty-print / filter the audit log produced by -kagura-audit.
 symmap-view   Pretty-print / filter the symbol map produced by -kagura-symmap.
 """
@@ -22,89 +23,63 @@ import argparse
 import json
 import sys
 import os
+from pathlib import Path
 from datetime import datetime
 
-# ── Profiles ──────────────────────────────────────────────────────────────────
+# Use the source checkout's shared library without requiring the MCP SDK.
+# Installed users can import the same library from the kagura-mcp wheel.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp" / "src"))
+from kagura_mcp.policy import generate_config, load_config, validate_config
 
-PROFILES = {
-    "FAST": {
-        "passes": ["str", "sv"],
-        "description": "Minimal overhead — string encryption + symbol hiding only.",
-    },
-    "BALANCED": {
-        "passes": ["str", "str-aes", "sv", "fla", "bcf", "bbs", "bbr"],
-        "description": "Good protection with acceptable build-time overhead.",
-    },
-    "STRONG": {
-        "passes": [
-            "str", "str-aes", "wstr", "sv", "fla", "bcf", "bbs", "bbr",
-            "dci", "co", "ibr", "ci", "genc", "mvo", "lt",
-        ],
-        "description": "Maximum protection — significant build-time increase.",
-    },
-}
-
-ALL_PASSES = [
-    "fla", "bcf", "sub", "str", "str-aes", "wstr", "anti-debug",
-    "objc", "jni", "co", "vm", "bbr", "dci", "fsplit", "bbs",
-    "sv", "ibr", "lt", "tamper", "ci", "pac", "genc", "mvo", "pe", "honey",
-]
-
-# ── Sub-command: config-gen ───────────────────────────────────────────────────
 
 def cmd_config_gen(args):
-    cfg = {}
+    def patterns(value):
+        return [p.strip() for p in value.split(",")] if value is not None else None
 
-    if args.profile:
-        p = args.profile.upper()
-        if p not in PROFILES:
-            print(f"Unknown profile '{p}'. Choose from: {', '.join(PROFILES)}", file=sys.stderr)
-            sys.exit(1)
-        cfg["profile"] = p
-        cfg["passes"] = {pass_: True for pass_ in PROFILES[p]["passes"]}
-    else:
-        cfg["profile"] = "CUSTOM"
-
-    if args.passes:
-        explicit = [x.strip().lstrip("-") for x in args.passes.split(",")]
-        for pass_ in explicit:
-            if pass_ not in ALL_PASSES:
-                print(f"Warning: unknown pass '{pass_}'", file=sys.stderr)
-        if "passes" not in cfg:
-            cfg["passes"] = {}
-        for pass_ in explicit:
-            cfg["passes"][pass_] = True
-
-    if args.protect:
-        cfg["protect"] = [p.strip() for p in args.protect.split(",")]
-    if args.deny:
-        cfg["deny"] = [p.strip() for p in args.deny.split(",")]
-    if args.allow:
-        cfg["allow"] = [p.strip() for p in args.allow.split(",")]
+    if args.audit_out and not args.audit:
+        raise ValueError("--audit-out requires --audit")
+    if args.symmap_out and not args.symmap:
+        raise ValueError("--symmap-out requires --symmap")
+    passes = {p.strip(): True for p in args.passes.split(",")} if args.passes else {}
+    if args.dwarf:
+        passes["dwarf"] = args.dwarf
+    result = generate_config(
+        profile=args.profile or "CUSTOM", passes=passes,
+        tuning={"seed": int(args.seed)} if args.seed is not None else None,
+        protect=patterns(args.protect), denylist=patterns(args.deny), allowlist=patterns(args.allow),
+    )
+    cfg = result["config"]
+    flags = []
     if args.build_id:
-        cfg["build_id"] = args.build_id
-    if args.seed:
-        cfg["seed"] = int(args.seed)
+        flags.append("-kagura-build-id=" + args.build_id)
     if args.audit:
-        cfg["audit"] = True
+        flags.append("-kagura-audit")
         if args.audit_out:
             cfg["audit_out"] = args.audit_out
     if args.symmap:
-        cfg["symmap"] = True
+        flags.append("-kagura-symmap")
         if args.symmap_out:
-            cfg["symmap_out"] = args.symmap_out
-    if args.dwarf:
-        cfg["dwarf"] = args.dwarf
-
-    cfg["_generated"] = datetime.utcnow().isoformat() + "Z"
-
+            flags.append("-kagura-symmap-out=" + args.symmap_out)
     text = json.dumps(cfg, indent=2)
     if args.output:
-        with open(args.output, "w") as f:
-            f.write(text + "\n")
+        Path(args.output).write_text(text + "\n", encoding="utf-8")
         print(f"Config written to {args.output}")
     else:
         print(text)
+    if flags:
+        print("Additional compiler flags (these cannot be enabled in JSON): " +
+              json.dumps(flags), file=sys.stderr)
+    for note in result["notes"]:
+        print(note, file=sys.stderr)
+
+
+def cmd_config_check(args):
+    try:
+        result = validate_config(load_config(Path(args.config).read_text(encoding="utf-8")))
+    except (ValueError, UnicodeError) as exc:
+        result = {"valid": False, "errors": [{"path": "$", "message": str(exc)}]}
+    print(json.dumps(result, indent=2))
+    return 0 if result["valid"] else 1
 
 # ── Sub-command: audit-view ───────────────────────────────────────────────────
 
@@ -207,6 +182,9 @@ def main():
     cg.add_argument("--dwarf",   choices=["keep","strip","obfuscate"], help="DWARF mode")
     cg.add_argument("-o", "--output", help="Output path (default: stdout)")
 
+    cc = sub.add_parser("config-check", help="Validate a policy without LLVM or compilation")
+    cc.add_argument("config", help="Policy JSON file")
+
     # audit-view
     av = sub.add_parser("audit-view", help="View kagura audit log")
     av.add_argument("--log",    help="Audit log path (default: kagura_audit.json)")
@@ -220,6 +198,8 @@ def main():
 
     args = parser.parse_args()
 
+    if args.command == "config-check":
+        return cmd_config_check(args)
     if args.command == "config-gen":
         cmd_config_gen(args)
     elif args.command == "audit-view":
@@ -230,4 +210,8 @@ def main():
         parser.print_help()
 
 if __name__ == "__main__":
-    main()
+    try:
+        sys.exit(main())
+    except (ValueError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)

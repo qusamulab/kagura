@@ -159,6 +159,7 @@ nav:
       - Bazel: integration/bazel.md
       - CocoaPods: integration/cocoapods.md
       - Swift Package Manager: integration/swiftpm.md
+      - Kagura MCP: integration/mcp.md
   - Cookbook:
       - cookbook/index.md
       - Banking / FinTech: cookbook/banking.md

@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kagura-mcp"
+version = "0.1.0"
+description = "Local MCP tools for Kagura configuration and build inspection"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = ["mcp>=1.20,<2"]
+
+[project.scripts]
+kagura-mcp = "kagura_mcp.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+kagura_mcp = ["catalog.json"]

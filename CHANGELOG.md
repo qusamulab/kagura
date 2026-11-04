@@ -5,6 +5,24 @@ All notable changes to Kagura are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Local `kagura-mcp` stdio server with environment diagnosis, registry/profile
+  discovery, policy generation and validation, paginated audit inspection, and
+  structured baseline/obfuscated binary comparison. File inputs are scoped to
+  a configured workspace; the tools do not write or build application artifacts.
+- LLVM-independent `kagura-cli.py config-check` with policy names, types,
+  numeric ranges and flavor validation. The MCP SDK is not needed by this CLI.
+
+### Fixed
+
+- Generate CLI policies from the same profiles and pass registry as the plugin,
+  including current opt-in passes. Emit `allowlist`/`denylist`, `tuning.seed`
+  and `passes.dwarf` in their supported locations. Report audit, symbol-map and
+  build-ID options as additional compiler flags instead of ignored JSON keys.
+
 ## [0.3.0] — 2026-10-26
 
 A repair release. Several documented flags did nothing at all; a few produced

@@ -47,6 +47,8 @@ hand-register a pass in any of those — they are all X-macro expansions of the
 7. If the pass should be on by default for FAST / BALANCED / STRONG, add rows to
    `lib/Transforms/Profiles.def` and run `scripts/ci/gen-profiles.py`. Do not
    edit `integration/profiles/*.json` — they are generated and CI checks them.
+   Run the same generator after registry changes: it also updates the bundled
+   Python catalog used by `kagura-mcp` and the policy CLI.
 
 There is nothing to add to `lib/Transforms/CMakeLists.txt`: the source list and
 the unity-build groups are globbed per directory. A new *category* directory

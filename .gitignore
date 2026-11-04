@@ -16,6 +16,10 @@ Testing/
 #  .venv/.gitignore containing "*" — be explicit)
 .venv/
 .venv-docs/
+__pycache__/
+*.egg-info/
+mcp/dist/
+mcp/build/
 
 # Paper: LaTeX build artifacts only.
 # paper/paper.tex, paper/refs.bib, paper/IEEEtran.{cls,bst} and

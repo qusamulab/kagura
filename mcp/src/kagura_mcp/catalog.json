@@ -1,0 +1,282 @@
+{
+  "_generated": "generated from lib/Transforms/Profiles.def by scripts/ci/gen-profiles.py",
+  "passes": {
+    "ci": {
+      "flag": "-kagura-ci",
+      "description": "Call indirection",
+      "scope": "module"
+    },
+    "pac": {
+      "flag": "-kagura-pac",
+      "description": "Pointer authentication (ARM64)",
+      "scope": "module"
+    },
+    "str": {
+      "flag": "-kagura-str",
+      "description": "String encryption",
+      "scope": "module"
+    },
+    "str_aes": {
+      "flag": "-kagura-str-aes",
+      "description": "AES-128-CTR string encryption",
+      "scope": "module"
+    },
+    "wstr": {
+      "flag": "-kagura-wstr",
+      "description": "Wide/UTF-16/CFString encryption",
+      "scope": "module"
+    },
+    "string_split": {
+      "flag": "-kagura-string-split",
+      "description": "Split string literals across multiple globals",
+      "scope": "module"
+    },
+    "tamper": {
+      "flag": "-kagura-tamper",
+      "description": "Anti-tamper: inject runtime integrity checks",
+      "scope": "module"
+    },
+    "objc": {
+      "flag": "-kagura-objc",
+      "description": "ObjC obfuscation (iOS)",
+      "scope": "module"
+    },
+    "jni": {
+      "flag": "-kagura-jni",
+      "description": "JNI dynamic registration (Android)",
+      "scope": "module"
+    },
+    "anti_debug": {
+      "flag": "-kagura-anti-debug",
+      "description": "Anti-debug / Anti-Frida",
+      "scope": "module"
+    },
+    "fsplit": {
+      "flag": "-kagura-fsplit",
+      "description": "Function splitting / CFG fragmentation",
+      "scope": "module"
+    },
+    "genc": {
+      "flag": "-kagura-genc",
+      "description": "Global variable encryption",
+      "scope": "module"
+    },
+    "honey": {
+      "flag": "-kagura-honey",
+      "description": "Honey value / fake symbol injection",
+      "scope": "module"
+    },
+    "sv": {
+      "flag": "-kagura-sv",
+      "description": "Symbol visibility obfuscation",
+      "scope": "module"
+    },
+    "fla": {
+      "flag": "-kagura-fla",
+      "description": "CFG flattening",
+      "scope": "function"
+    },
+    "bcf": {
+      "flag": "-kagura-bcf",
+      "description": "Bogus control flow",
+      "scope": "function"
+    },
+    "sub": {
+      "flag": "-kagura-sub",
+      "description": "Instruction substitution",
+      "scope": "function"
+    },
+    "cse_break": {
+      "flag": "-kagura-cse-break",
+      "description": "Common-subexpression breaker",
+      "scope": "function"
+    },
+    "co": {
+      "flag": "-kagura-co",
+      "description": "Constant obfuscation (MBA)",
+      "scope": "function"
+    },
+    "vm": {
+      "flag": "-kagura-vm",
+      "description": "VM-based function virtualization",
+      "scope": "function"
+    },
+    "ibr": {
+      "flag": "-kagura-ibr",
+      "description": "Indirect branching",
+      "scope": "function"
+    },
+    "lt": {
+      "flag": "-kagura-lt",
+      "description": "Loop transformation",
+      "scope": "function"
+    },
+    "bbr": {
+      "flag": "-kagura-bbr",
+      "description": "Basic block reordering",
+      "scope": "function"
+    },
+    "dci": {
+      "flag": "-kagura-dci",
+      "description": "Dead code insertion",
+      "scope": "function"
+    },
+    "bbs": {
+      "flag": "-kagura-bbs",
+      "description": "Basic block splitting",
+      "scope": "function"
+    },
+    "mvo": {
+      "flag": "-kagura-mvo",
+      "description": "In-memory value XOR obfuscation",
+      "scope": "function"
+    },
+    "pe": {
+      "flag": "-kagura-pe",
+      "description": "Pointer encryption (address obfuscation)",
+      "scope": "function"
+    },
+    "telemetry": {
+      "flag": "-kagura-telemetry",
+      "description": "Inject telemetry event probes",
+      "scope": "function"
+    },
+    "bbcheck": {
+      "flag": "-kagura-bbcheck",
+      "description": "Basic block opcode checksum guards",
+      "scope": "function"
+    },
+    "elt": {
+      "flag": "-kagura-elt",
+      "description": "Encrypted lookup table (switch encoding)",
+      "scope": "function"
+    }
+  },
+  "tuning": {
+    "bcf_prob": {
+      "flag": "-kagura-bcf-prob",
+      "type": "uint32_t",
+      "default": 30,
+      "description": "Bogus CF probability [0-100]"
+    },
+    "bcf_iter": {
+      "flag": "-kagura-bcf-iter",
+      "type": "uint32_t",
+      "default": 1,
+      "description": "Bogus CF iterations"
+    },
+    "sub_iter": {
+      "flag": "-kagura-sub-iter",
+      "type": "uint32_t",
+      "default": 1,
+      "description": "Substitution iterations"
+    },
+    "dci_prob": {
+      "flag": "-kagura-dci-prob",
+      "type": "uint32_t",
+      "default": 40,
+      "description": "Dead code insertion probability [0-100]"
+    },
+    "seed": {
+      "flag": "-kagura-seed",
+      "type": "uint64_t",
+      "default": 0,
+      "description": "PRNG seed (0 = entropy)"
+    }
+  },
+  "profiles": {
+    "FAST": {
+      "passes": {
+        "str": true,
+        "sv": true,
+        "anti_debug": true,
+        "str_aes": false,
+        "wstr": false,
+        "fla": false,
+        "bcf": false,
+        "sub": false,
+        "co": false,
+        "ibr": false,
+        "lt": false,
+        "bbr": false,
+        "bbs": false,
+        "dci": false,
+        "genc": false,
+        "mvo": false,
+        "honey": false,
+        "tamper": false,
+        "fsplit": false,
+        "pe": false,
+        "vm": false
+      },
+      "tuning": {
+        "bcf_prob": 30,
+        "bcf_iter": 1,
+        "sub_iter": 1,
+        "dci_prob": 40
+      }
+    },
+    "BALANCED": {
+      "passes": {
+        "str": true,
+        "wstr": true,
+        "bcf": true,
+        "bbr": true,
+        "bbs": true,
+        "dci": true,
+        "genc": true,
+        "mvo": true,
+        "sv": true,
+        "anti_debug": true,
+        "tamper": true,
+        "str_aes": false,
+        "fla": false,
+        "sub": false,
+        "co": false,
+        "ibr": false,
+        "lt": false,
+        "honey": false,
+        "fsplit": false,
+        "pe": false,
+        "vm": false
+      },
+      "tuning": {
+        "bcf_prob": 20,
+        "bcf_iter": 1,
+        "sub_iter": 1,
+        "dci_prob": 40
+      }
+    },
+    "STRONG": {
+      "passes": {
+        "str": true,
+        "str_aes": true,
+        "wstr": true,
+        "fla": true,
+        "bcf": true,
+        "sub": true,
+        "co": true,
+        "ibr": true,
+        "lt": true,
+        "bbr": true,
+        "bbs": true,
+        "dci": true,
+        "genc": true,
+        "mvo": true,
+        "sv": true,
+        "honey": true,
+        "anti_debug": true,
+        "tamper": true,
+        "fsplit": false,
+        "pe": false,
+        "vm": false
+      },
+      "tuning": {
+        "bcf_prob": 50,
+        "bcf_iter": 2,
+        "sub_iter": 2,
+        "dci_prob": 40
+      }
+    }
+  }
+}
