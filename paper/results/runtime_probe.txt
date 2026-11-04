@@ -1,0 +1,6 @@
+tracer=0
+inline_hooks=0
+got_hooks=1
+sw_breakpoints=0
+hw_breakpoints=0
+emulator=0

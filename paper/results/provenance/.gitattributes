@@ -1,0 +1,2 @@
+# Preserve measurement-time source bytes for recorded SHA-256 verification.
+*.txt -text
