@@ -159,7 +159,7 @@ jobs:
         run: cd build && ctest --output-on-failure -j$(sysctl -n hw.logicalcpu)
 
       # Every ctest above stops at the IR or link level. These two run the
-      # obfuscated code. CONTRIBUTING.md has always told contributors to run
+      # obfuscated code. docs/project/CONTRIBUTING.md has always told contributors to run
       # differential-test.sh, but it was never in CI, and on macOS it could not
       # work at all: it shelled out to timeout(1), which does not exist there,
       # and only gated its exit status on failures — so it reported success for
