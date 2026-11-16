@@ -19,6 +19,8 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Move macOS CI and release jobs to the supported `macos-15` Arm64 runner
+  after retirement of `macos-14`.
 - Restore the target cost model in `kagura-opt` so ordinary optimization can
   retain SIMD vectorization through the compiler driver, including cross targets.
 - Synchronize behavior logging and nonce replay tracking. Flush callbacks use

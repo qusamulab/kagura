@@ -22,11 +22,11 @@ jobs:
       matrix:
         include:
           # ── macOS (Apple Silicon) ─────────────────────────────────────────
-          - runner: macos-14
+          - runner: macos-15
             os-label: macos-arm64
             llvm: "21"
 
-          - runner: macos-14
+          - runner: macos-15
             os-label: macos-arm64
             llvm: "22"
 
