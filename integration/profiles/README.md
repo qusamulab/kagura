@@ -12,7 +12,9 @@
 | `strong.json`   | `STRONG` — security-critical shipping builds. |
 
 Every profile enables `anti_debug`, so **the target must link
-`kagura_runtime`** whichever profile it uses. `BALANCED` and `STRONG` also
+`kagura_runtime`** whichever profile it uses. `STRONG` uses AES for narrow
+strings (`str=false`, `str_aes=true`).
+`BALANCED` and `STRONG` also
 enable `tamper`.
 
 These are ordinary [kagura JSON policy files](../../docs/configuration.md);

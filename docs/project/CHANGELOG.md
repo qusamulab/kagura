@@ -7,6 +7,31 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Integrity reports require the new `kagura_integrity_report_build_signed`
+  API and an application-provisioned HMAC-SHA256 signer. The forgeable legacy
+  FNV/public-fingerprint report API now fails closed; migrate clients and
+  servers to the version-2 format described in the runtime documentation.
+- STRONG selects AES instead of XOR for narrow strings. Independent pass and
+  function PRNG streams remove cross-module draw-order dependence and change
+  generated output at the same seed relative to earlier versions.
+
+### Fixed
+
+- Restore the target cost model in `kagura-opt` so ordinary optimization can
+  retain SIMD vectorization through the compiler driver, including cross targets.
+- Synchronize behavior logging and nonce replay tracking. Flush callbacks use
+  a snapshot outside locks; concurrent report commits consume a nonce once.
+- Apply function selection to XOR/AES, wide strings and StringSplit, retaining
+  mixed-policy shared literals unchanged to preserve pointer identity. Avoid
+  redundant lazy guards at uses dominated by an earlier guarded use.
+- Observe registered transformation results in automatic, named and O0
+  pipelines when auditing, including unchanged inputs. Serialize JSONL append
+  records and fail compilation if a requested audit output cannot be written.
+- Stop compilation when an explicitly requested policy cannot be read or
+  parsed, even without strict unknown-key validation.
+
 ## [0.4.0] — 2026-11-04
 
 ### Added

@@ -58,7 +58,7 @@ file — it is ignored, so this setting has no effect; did you mean "str_aes"?
 |:-------------|:-----|:-----|
 | `FAST`     | `str` `sv` `anti_debug` | デバッグ / CI ビルド、最小オーバーヘッド |
 | `BALANCED` | `str` `wstr` `bcf` `bbr` `bbs` `dci` `genc` `mvo` `sv` `anti_debug` `tamper`（`bcf_prob` 20, `bcf_iter` 1） | 標準リリースビルド |
-| `STRONG`   | `str` `str_aes` `wstr` `fla` `bcf` `sub` `co` `ibr` `lt` `bbr` `bbs` `dci` `genc` `mvo` `sv` `honey` `anti_debug` `tamper`（`bcf_prob` 50, `bcf_iter` 2, `sub_iter` 2） | セキュリティクリティカルな出荷ビルド |
+| `STRONG`   | `str_aes` `wstr` `fla` `bcf` `sub` `co` `ibr` `lt` `bbr` `bbs` `dci` `genc` `mvo` `sv` `honey` `anti_debug` `tamper`（`bcf_prob` 50, `bcf_iter` 2, `sub_iter` 2） | セキュリティクリティカルな出荷ビルド |
 
 どのプロファイルも `anti_debug` を有効にするため、**プロファイルを使うビルドは `kagura_runtime` のリンクが必須**です。
 
@@ -88,7 +88,7 @@ CLI では文字列パスのフラグと併せて `-kagura-string-aggressive` �
 
 対象は特殊セクション外の private/internal な文字列領域です。TLS、外部公開された文字列領域、LLVM アノテーション、ローダ用メタデータ、エイリアス、Kagura 自身の鍵とヘルパーは対象外です。
 
-自動パイプラインでは `str` が `str_aes` より先に実行されます。両方を有効化しても、先に XOR 暗号化された文字列が AES に置き換わるわけではありません。対象のナロー文字列を AES で保護するには、プロファイル利用時も `"str": false` と `"str_aes": true` を指定してください。
+自動パイプラインでは `str` が `str_aes` より先に実行されます。両方を有効化しても、先に XOR 暗号化された文字列が AES に置き換わるわけではありません。STRONG は既定で `"str": false, "str_aes": true` を設定し、対象のナロー文字列に AES を適用します。ほかのプロファイルで AES を使う場合も同じ組み合わせを指定してください。
 
 ## 平文の保持時間を制限する
 
@@ -186,3 +186,15 @@ KAGURA_FLAVOR=production clang -fpass-plugin=KaguraObfuscator.dylib \
 - [チューニングパラメータ](tuning.md) — すべての CLI フラグ、シンボルフィルタと `-kagura-build-id` per-build 鍵シードを含む。
 - [パス順序](pass-order.md) — プラグインがこれらのパスを適用する決定論的な順序。
 - [ゲーム保護](game-protection.md) — 実行時値保護のための `Protected<T>` (`mvo` / `pe` を補完)。
+
+## 設定ファイルのエラーと文字列の対象選択
+
+明示した設定ファイルが存在しない、読み取れない、JSON として不正、または
+ルートがオブジェクトでない場合は、`-kagura-config-strict` の有無にかかわらず
+コンパイルを停止します。未知キーの警告・strict 時のエラーとは別の扱いです。
+
+XOR、AES、ワイド文字列、StringSplit は、文字列を利用する各関数の
+allowlist / denylist / protect、`kagura_hotpath`、パス別無効化を参照します。
+AES は共通の `kagura_nostr`（AutoSelect が設定するものを含む）も尊重します。
+保護対象と除外対象が同じ文字列を共有する場合、その文字列全体を変換対象から
+外します。文字列の複製によるポインタ同一性の変更を避けるためです。

@@ -65,6 +65,52 @@ symbols at once, which is the reason this header exists.
 
 Always `#include "kagura/runtime.h"` instead of declaring these by hand.
 
+## Authenticated integrity reports
+
+Migrate calls to `kagura_integrity_report_build()` to
+`kagura_integrity_report_build_signed()`. The legacy function now returns `-1`
+and clears a writable output buffer: its old FNV-based MAC was computable from
+public report fields and could not authenticate a report.
+
+```c
+int kagura_integrity_report_build_signed(
+    const char *nonce, char *out, size_t capacity,
+    kagura_report_signer signer, void *userdata);
+```
+
+Supply a signer with signature
+`int(const uint8_t *body, size_t len, uint8_t mac[32], void *userdata)`.
+It must calculate HMAC-SHA256 over exactly `len` supplied bytes using an
+independently provisioned secret shared with your server, fill all 32 MAC
+bytes, and return `1`. Use an established cryptographic implementation and
+your application's key management. The runtime provides neither a default
+authentication key nor an HMAC implementation. `device_key_hash` is an
+informational identifier and must never be used as the signing key.
+
+The version-2 JSON includes `version`, `mac_algorithm`, `device_key_hash`,
+`behavior_score`, `violation_flags`, `nonce`, `timestamp`, then a final `mac`
+field containing 64 lowercase hex characters. The signer receives the exact
+object without that final field, ending in `}`. The server must reconstruct
+those bytes by removing the final `,"mac":"..."` field and restoring `}`;
+parsing and reserializing JSON can change the authenticated bytes. Verify the
+MAC and atomically validate and consume a server-issued challenge. A client
+key alone does not prove that the client or its detector results are intact;
+use platform attestation when that assurance is required.
+
+Nonces contain 1–64 hex characters. Success returns the output byte count;
+failure returns `-1` with an empty writable output. Signing failures and small
+buffers do not consume the nonce, so callers can retry. Concurrent attempts
+with the same nonce can return at most one successful report while it remains
+in the local replay cache. That cache retains only 32 entries for 300 seconds
+and resets on process restart; it cannot replace server-side replay checks.
+Signers run outside internal locks and must support the application's calling
+threads. Report and event APIs are not async-signal-safe.
+
+`kagura_log_event`, `kagura_event_count`, `kagura_suspicion_score` and
+`kagura_clear_events` synchronize the shared event ring. `kagura_flush_events`
+calls the application once per event from a locked snapshot, after releasing
+the lock, and does not clear the ring. Callbacks may safely log or clear events.
+
 ## Platform attestation API
 
 Thin C bindings for the major platform attestation services. The C side

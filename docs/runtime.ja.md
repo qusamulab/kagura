@@ -50,6 +50,45 @@ if (kagura_magisk_present())          { /* Android ターゲット */ }
 
 これらを手書きで宣言せず、必ず `#include "kagura/runtime.h"` してください。
 
+## 整合性レポートの認証と API 移行
+
+`kagura_integrity_report_build()` は常に `-1` を返し、書込み可能な出力を
+空にするようになりました。旧 MAC は公開フィールドから再計算できるため、
+認証用途には使えません。次の API に移行してください。
+
+```c
+int kagura_integrity_report_build_signed(
+    const char *nonce, char *out, size_t capacity,
+    kagura_report_signer signer, void *userdata);
+```
+
+signer の型は `int(const uint8_t *body, size_t len, uint8_t mac[32], void *userdata)`
+です。アプリが独立して配備・管理するサーバ共有秘密鍵で、渡された `len` バイトの
+HMAC-SHA256 を計算し、32 バイトをすべて書き込んで `1` を返してください。
+既存の暗号ライブラリを使います。runtime は既定鍵や HMAC 実装を提供しません。
+`device_key_hash` は識別情報であり、署名鍵には使えません。
+
+version 2 の JSON は `version`, `mac_algorithm`, `device_key_hash`,
+`behavior_score`, `violation_flags`, `nonce`, `timestamp` の後に、64 文字の
+小文字16進数の `mac` を置きます。signer が受け取るのは最後の mac フィールドを
+含まない、`}` で終わるオブジェクトそのものです。サーバでは末尾の
+`,"mac":"..."` を取り除いて `}` を戻し、そのバイト列を検証してください。
+JSON を再シリアライズすると認証対象が変わる場合があります。
+MAC の検証に加えて、サーバが発行した challenge を原子的に確認・消費します。
+クライアント鍵だけではクライアントや検知結果の正当性まで保証できないため、
+必要に応じてプラットフォーム attestation と組み合わせてください。
+
+nonce は1〜64文字の16進数です。成功時は出力バイト数、失敗時は `-1` と空の出力を
+返します。署名失敗やバッファ不足では nonce を消費せず、再試行できます。
+同じ nonce の同時生成はローカルキャッシュに残る間、最大1件だけ成功します。
+キャッシュは32件・300秒の範囲で、プロセス再起動でも失われるため、サーバの
+リプレイ対策を置き換えません。signer はロック外で呼ばれ、呼出元のスレッドに
+対応する必要があります。レポートとイベント API は signal-safe ではありません。
+
+イベントの記録・件数照会・スコア取得・クリアは共有リングを同期します。
+`kagura_flush_events` はロック中に取得したスナップショットをロック外で通知し、
+リングをクリアしません。コールバック内から記録・クリアすることもできます。
+
 ## プラットフォーム認証 API
 
 主要なプラットフォーム認証サービスへの薄い C バインディング。C 側はノンス生成と高速なローカル事前スクリーンを実行し、非同期署名トークンのラウンドトリップは Swift / Kotlin から接続します。
