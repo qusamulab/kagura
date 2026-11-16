@@ -502,8 +502,7 @@ static bool validatePolicy(const json::Object &Policy, bool Root = true) {
 }
 
 static void configReadError() {
-  if (ConfigStrict)
-    report_fatal_error("[kagura] cannot validate the policy file", false);
+  report_fatal_error("[kagura] cannot read the requested policy file", false);
 }
 
 // ---- Entry point ------------------------------------------------------------

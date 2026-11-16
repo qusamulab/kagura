@@ -7,6 +7,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/Support/ModRef.h"
 
 using namespace llvm;
@@ -176,8 +178,24 @@ void emitStringGuards(GlobalVariable *GV, GlobalVariable *FlagGV,
     else if (isa<ConstantExpr>(U))
       Worklist.append(U->user_begin(), U->user_end());
   }
-  for (Instruction *I : Users)
-    if (I->getFunction() != DecryptStub)
+  // A successful guard permanently publishes the string. A dominated use
+  // needs no second atomic load/branch. Decide before changing any CFG edges.
+  SmallPtrSet<Instruction *, 16> Candidates(Users.begin(), Users.end());
+  MapVector<Function *, SmallVector<Instruction *, 8>> Selected;
+  for (Instruction *I : Users) {
+    Function *F = I->getFunction();
+    if (F == DecryptStub || Selected.count(F))
+      continue;
+    auto &Guards = Selected[F];
+    DominatorTree DT(*F);
+    for (BasicBlock &BB : *F)
+      for (Instruction &Use : BB)
+        if (Candidates.contains(&Use) &&
+            !llvm::any_of(Guards, [&](Instruction *G) { return DT.dominates(G, &Use); }))
+          Guards.push_back(&Use);
+  }
+  for (auto &Item : Selected)
+    for (Instruction *I : Item.second)
       emitLazyGuard(I, FlagGV, DecryptStub, BBPrefix);
 }
 

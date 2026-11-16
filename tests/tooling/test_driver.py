@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import platform
 from pathlib import Path
 import subprocess
 import sys
@@ -123,6 +124,14 @@ class DriverTests(unittest.TestCase):
         self.write("source.c", "int value(void){return 42;}\n")
         self.invoke("--target=wasm32", "-O1", "-S", "-emit-llvm", "source.c", "-o", "wasm.ll")
         self.assertIn('target triple = "wasm32', (self.root / "wasm.ll").read_text())
+
+    @unittest.skipUnless(platform.machine().lower() in ("arm64", "aarch64", "x86_64", "amd64"),
+                         "SIMD regression needs an AArch64 or x86-64 target")
+    def test_target_cost_model_preserves_vectorization(self):
+        self.write("vector.c", "void add(float *restrict o,const float *restrict a,"
+                   "const float *restrict b,int n){for(int i=0;i<n;++i)o[i]=a[i]+b[i];}\n")
+        self.invoke("-O3", "-S", "-emit-llvm", "vector.c", "-o", "vector.ll")
+        self.assertRegex((self.root / "vector.ll").read_text(), r"fadd <[0-9]+ x float>")
 
     def test_dependency_target_is_final_object(self):
         self.write("source.c", "int value(void){return 42;}\n")

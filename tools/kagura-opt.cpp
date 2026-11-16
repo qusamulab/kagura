@@ -58,6 +58,16 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/WithColor.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
+#include "llvm/Config/llvm-config.h"
+#if __has_include("llvm/TargetParser/Triple.h")
+#include "llvm/TargetParser/Triple.h"
+#else
+#include "llvm/ADT/Triple.h"
+#endif
 #include "llvm/Support/raw_ostream.h"
 #if __has_include("llvm/Plugins/PassPlugin.h")
 #include "llvm/Plugins/PassPlugin.h"
@@ -251,8 +261,39 @@ int main(int argc, char **argv) {
   CGAM.registerPass([&] { return PassInstrumentationAnalysis(&PIC); });
   MAM.registerPass([&] { return PassInstrumentationAnalysis(&PIC); });
 
-  // Construct the pass pipeline with the kagura plugin registered.
-  PassBuilder PB(nullptr, PipelineTuningOptions(), std::nullopt, &PIC);
+  // The driver disables Clang's IR passes, so this pipeline must retain its
+  // target cost model (in particular SIMD profitability and legal widths).
+  std::unique_ptr<TargetMachine> TM;
+  if (!ConfigCheck && !M->getTargetTriple().empty()) {
+    InitializeAllTargetInfos();
+    InitializeAllTargets();
+    InitializeAllTargetMCs();
+    std::string TargetError;
+#if LLVM_VERSION_MAJOR >= 20
+    std::string TripleName = M->getTargetTriple().str();
+#else
+    std::string TripleName = M->getTargetTriple();
+#endif
+    const Target *T = TargetRegistry::lookupTarget(TripleName, TargetError);
+    if (!T) {
+      WithColor::error() << TargetError << '\n';
+      return 1;
+    }
+    // Subtargets read each function's target-cpu/target-features attributes.
+    // Keep module defaults generic: the first function may be specialized.
+#if LLVM_VERSION_MAJOR >= 21
+    TM.reset(T->createTargetMachine(Triple(TripleName), "", "", TargetOptions(),
+                                    std::nullopt));
+#else
+    TM.reset(T->createTargetMachine(TripleName, "", "", TargetOptions(),
+                                    std::nullopt));
+#endif
+    if (!TM) {
+      WithColor::error() << "Cannot create target machine for " << TripleName << '\n';
+      return 1;
+    }
+  }
+  PassBuilder PB(TM.get(), PipelineTuningOptions(), std::nullopt, &PIC);
 #ifdef KAGURA_STATIC_PLUGIN
   KaguraInfo.RegisterPassBuilderCallbacks(PB);
 #else

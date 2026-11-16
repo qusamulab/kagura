@@ -85,27 +85,16 @@ static uint64_t baseSeed() {
   return Seed;
 }
 
-PRNG &getModulePRNG(const Module &M) {
-  // Cache the current module's stream per thread so parallel ThinLTO backends
-  // do not race. Seed from the basename to keep output independent of the
-  // checkout path; verify-reproducible.sh relies on that property.
-  //
-  // Two files with the same basename in different directories share a stream.
-  // Use -kagura-build-id to differentiate builds when needed.
-  struct Cache {
-    std::string Id;
-    PRNG Gen{0};
-    bool Valid = false;
-  };
-  static thread_local Cache C;
-
-  StringRef Id = sys::path::filename(M.getModuleIdentifier());
-  if (!C.Valid || C.Id != Id) {
-    C.Id = Id.str();
-    C.Gen = PRNG(baseSeed() ^ fnv1a64(Id));
-    C.Valid = true;
-  }
-  return C.Gen;
+PRNG getModulePRNG(const Module &M, StringRef Stream) {
+  // State belongs to the caller, never to a thread or a previous module.
+  // Relative source names preserve project directories; absolute names fall
+  // back to the basename so moving a checkout does not rotate every key.
+  StringRef Id = M.getSourceFileName();
+  if (Id.empty())
+    Id = M.getModuleIdentifier();
+  if (sys::path::is_absolute(Id))
+    Id = sys::path::filename(Id);
+  return PRNG(baseSeed() ^ fnv1a64(Id) ^ fnv1a64(Stream));
 }
 
 uint64_t randomForWidth(PRNG &RNG, unsigned Bits) {

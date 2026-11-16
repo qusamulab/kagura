@@ -86,7 +86,7 @@ Built-in profiles selected by the `"profile"` key:
 |:--------|:---------------|:-------|:-------------|
 | `FAST`     | `str` `sv` `anti_debug` | — | Debug / CI builds with minimal overhead |
 | `BALANCED` | `str` `wstr` `bcf` `bbr` `bbs` `dci` `genc` `mvo` `sv` `anti_debug` `tamper` | `bcf_prob` 20, `bcf_iter` 1 | Standard release builds |
-| `STRONG`   | `str` `str_aes` `wstr` `fla` `bcf` `sub` `co` `ibr` `lt` `bbr` `bbs` `dci` `genc` `mvo` `sv` `honey` `anti_debug` `tamper` | `bcf_prob` 50, `bcf_iter` 2, `sub_iter` 2 | Security-critical shipping builds |
+| `STRONG`   | `str_aes` `wstr` `fla` `bcf` `sub` `co` `ibr` `lt` `bbr` `bbs` `dci` `genc` `mvo` `sv` `honey` `anti_debug` `tamper` | `bcf_prob` 50, `bcf_iter` 2, `sub_iter` 2 | Security-critical shipping builds |
 
 Every profile enables `anti_debug`, so **a profile build must link
 `kagura_runtime`.**
@@ -146,8 +146,8 @@ loader metadata, aliases and Kagura's own keys/helpers are excluded.
 
 `str` runs before `str_aes` in the automatic pipeline. Enabling both does not
 upgrade XOR-encrypted strings to AES: the earlier pass consumes those targets.
-For AES protection of eligible narrow strings, set `"str": false` and
-`"str_aes": true`, including when overriding a strength profile.
+STRONG now defaults to `"str": false, "str_aes": true` so eligible narrow
+strings reach AES. Use the same combination when enabling AES in other profiles.
 
 ## Limit plaintext lifetime
 
@@ -257,3 +257,15 @@ and `protect` — the same keys as the root, minus `flavors` and `audit_out`.
   applies these passes.
 - [Game Protection](game-protection.md) — `Protected<T>` for run-time value
   protection (complementary to `mvo` / `pe`).
+
+## Policy errors and shared string selection
+
+An explicitly requested policy that is missing, unreadable, malformed JSON, or
+not a root object stops compilation even without `-kagura-config-strict`.
+Unknown-key warnings and strict-mode validation remain separate controls.
+
+XOR, AES, wide-string encryption and StringSplit honor each consuming function's
+allowlist / denylist / protect filters, `kagura_hotpath` and per-pass disables.
+AES also honors the common `kagura_nostr` disable, including AutoSelect metadata.
+If protected and excluded functions share a literal, the entire literal is
+left unchanged. This preserves observable pointer identity without cloning.

@@ -60,7 +60,7 @@ PreservedAnalyses BasicBlockChecksumPass::run(Function &F,
   Module &M     = *F.getParent();
   LLVMContext &Ctx = M.getContext();
 
-  PRNG &RNG = getModulePRNG(*F.getParent());
+  auto RNG = getModulePRNG(*F.getParent(), ("BasicBlockChecksum:" + F.getName()).str());
   uint32_t BlockID = 0;
 
   // Choose the blocks before touching the module.

@@ -107,7 +107,7 @@ KAGURA_PROFILE_TUNING(BALANCED, DCIProb, 40)
 //
 // Not "every pass": fsplit interacts badly with LTO, pe is ABI-sensitive and
 // vm costs 10-100x on the virtualized function. Those stay opt-in.
-KAGURA_PROFILE_PASS(STRONG, STR,       true)
+KAGURA_PROFILE_PASS(STRONG, STR,       false)
 KAGURA_PROFILE_PASS(STRONG, STRAES,    true)
 KAGURA_PROFILE_PASS(STRONG, WSTR,      true)
 KAGURA_PROFILE_PASS(STRONG, FLA,       true)

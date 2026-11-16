@@ -71,7 +71,7 @@ PreservedAnalyses DeadCodeInsertionPass::run(Function &F,
   if (hasExceptionHandling(F))
     return PreservedAnalyses::all();
 
-  PRNG &RNG = getModulePRNG(*F.getParent());
+  auto RNG = getModulePRNG(*F.getParent(), ("DeadCodeInsertion:" + F.getName()).str());
   uint32_t Prob = kagura::opt::DCIProb;
   if (Prob == 0) Prob = 40;
   if (Prob > 100) Prob = 100;

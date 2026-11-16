@@ -3,7 +3,9 @@
 #include "kagura/Options.h"
 #include "kagura/Utils.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/GlobalVariable.h"
 
 using namespace llvm;
@@ -122,6 +124,26 @@ bool shouldObfuscate(Function &F, StringRef PassAttr, bool GlobalFlag) {
   if (hasAnnotation(F, EnableAttr))
     return true;
   return GlobalFlag;
+}
+
+bool stringUsersAllowProtection(const GlobalVariable &GV, StringRef PassAttr) {
+  SmallVector<const User *, 16> Worklist(GV.users());
+  SmallPtrSet<const User *, 16> Seen;
+  while (!Worklist.empty()) {
+    const User *U = Worklist.pop_back_val();
+    if (!Seen.insert(U).second)
+      continue;
+    if (const auto *I = dyn_cast<Instruction>(U)) {
+      Function &F = *const_cast<Function *>(I->getFunction());
+      if (!shouldObfuscate(F, PassAttr))
+        return false;
+    } else if (isa<Constant>(U)) {
+      Worklist.append(U->user_begin(), U->user_end());
+    } else {
+      return false;
+    }
+  }
+  return true;
 }
 
 } // namespace kagura

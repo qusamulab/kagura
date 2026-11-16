@@ -53,6 +53,14 @@ if(KAGURA_BITCODE_TOOLS)
       --clang ${LLVM_BIN}/clang
       --kagura-opt $<TARGET_FILE:kagura-opt>
       --runtime $<TARGET_FILE:kagura_runtime> -v)
+  set(KAGURA_NAMED_PIPELINE_ARGS)
+  if(NOT KAGURA_PLUGIN_STATIC)
+    set(KAGURA_NAMED_PIPELINE_ARGS --opt ${LLVM_BIN}/opt
+      --plugin $<TARGET_FILE:KaguraObfuscator>)
+  endif()
+  add_test(NAME pipeline-contracts
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tooling/test_pipeline_contracts.py
+      --tool $<TARGET_FILE:kagura-opt> ${KAGURA_NAMED_PIPELINE_ARGS} -v)
 endif()
 
 if(WIN32)
@@ -60,6 +68,25 @@ if(WIN32)
   target_link_libraries(kagura_windows_checks PRIVATE kagura_runtime)
   add_test(NAME runtime-windows-checks COMMAND kagura_windows_checks)
 endif()
+
+find_package(Threads REQUIRED)
+add_executable(kagura_runtime_contracts runtime/contracts.cpp)
+target_link_libraries(kagura_runtime_contracts PRIVATE kagura_runtime Threads::Threads)
+add_test(NAME runtime-contracts COMMAND kagura_runtime_contracts)
+set_tests_properties(runtime-contracts PROPERTIES TIMEOUT 30)
+
+add_executable(kagura_random_contracts random_contracts.cpp
+  ${PROJECT_SOURCE_DIR}/lib/Transforms/Options.cpp
+  ${PROJECT_SOURCE_DIR}/lib/Transforms/Support/Random.cpp
+  ${PROJECT_SOURCE_DIR}/lib/Transforms/Support/IRUtils.cpp)
+llvm_update_compile_flags(kagura_random_contracts)
+if(LLVM_LINK_LLVM_DYLIB)
+  target_link_libraries(kagura_random_contracts PRIVATE LLVM)
+else()
+  llvm_map_components_to_libnames(KAGURA_RANDOM_TEST_LIBS Core Support TransformUtils)
+  target_link_libraries(kagura_random_contracts PRIVATE ${KAGURA_RANDOM_TEST_LIBS})
+endif()
+add_test(NAME random-contracts COMMAND kagura_random_contracts)
 
 # ── kagura-opt CLI smoke tests (static builds only) ───────────────────────────
 #

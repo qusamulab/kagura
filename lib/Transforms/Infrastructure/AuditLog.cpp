@@ -11,9 +11,9 @@
 //   "build_id" : value of -kagura-build-id if set
 //   "functions": array of { "name": "...", "passes": ["fla","bcf",...] }
 //
-// A function is included in the log if it has the kagura_obfuscated metadata
-// node attached, which each obfuscation pass is expected to set via
-//   kagura::markObfuscated(F, "passname");
+// Registry adapters observe changed IR and referenced storage when auditing is
+// enabled. Existing pass-specific markObfuscated() calls remain compatible.
+// "pass_results" includes unchanged invocations, with the limitations in notes.
 //
 // Pass key:   "kagura-audit"
 // CLI flags:  -kagura-audit  -kagura-audit-out=<path>
@@ -29,9 +29,11 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include <chrono>
 #include <system_error>
+#include <mutex>
 
 using namespace llvm;
 
@@ -46,8 +48,11 @@ void markObfuscated(Function &F, StringRef PassName) {
   MDNode *Existing = F.getMetadata("kagura_obfuscated");
   SmallVector<Metadata *, 8> Ops;
   if (Existing)
-    for (const MDOperand &Op : Existing->operands())
+    for (const MDOperand &Op : Existing->operands()) {
+      if (cast<MDString>(Op.get())->getString() == PassName)
+        return;
       Ops.push_back(Op.get());
+    }
   Ops.push_back(MDString::get(Ctx, PassName));
   F.setMetadata("kagura_obfuscated", MDNode::get(Ctx, Ops));
 }
@@ -85,8 +90,14 @@ PreservedAnalyses AuditLogPass::run(Module &M, ModuleAnalysisManager &) {
     });
   }
 
-  if (FunctionsArr.empty())
-    return PreservedAnalyses::all();
+  json::Array Results;
+  if (const auto *MD = M.getNamedMetadata("kagura.audit.results"))
+    for (const auto *Node : MD->operands())
+      Results.push_back(json::Object{
+          {"pass", cast<MDString>(Node->getOperand(0))->getString().str()},
+          {"scope", cast<MDString>(Node->getOperand(1))->getString().str()},
+          {"name", cast<MDString>(Node->getOperand(2))->getString().str()},
+          {"status", cast<MDString>(Node->getOperand(3))->getString().str()}});
 
   // Build record
   auto Now = std::chrono::system_clock::now().time_since_epoch();
@@ -102,6 +113,11 @@ PreservedAnalyses AuditLogPass::run(Module &M, ModuleAnalysisManager &) {
       {"timestamp",  Timestamp},
       {"build_id",   opt::BuildID.empty() ? "" : opt::BuildID.getValue()},
       {"functions",  std::move(FunctionsArr)},
+      {"pass_results", std::move(Results)},
+      {"notes", json::Array{
+          "unchanged means excluded, unsupported, or no eligible transformation; "
+          "a missing result means the pass was not observed running. "
+          "Changed IR is not evidence of protection strength."}},
   };
 
   // Append to output file
@@ -110,10 +126,19 @@ PreservedAnalyses AuditLogPass::run(Module &M, ModuleAnalysisManager &) {
                             : opt::AuditLogOut.getValue();
 
   std::error_code EC;
+  static std::mutex OutputMutex;
+  std::lock_guard<std::mutex> Guard(OutputMutex);
   raw_fd_ostream OS(OutPath, EC, sys::fs::OF_Append | sys::fs::OF_Text);
-  if (!EC) {
-    OS << json::Value(std::move(Record)) << "\n";
-  }
+  if (EC)
+    report_fatal_error(Twine("[kagura] cannot open audit log: ") + EC.message(), false);
+  auto Lock = OS.lock();
+  if (!Lock)
+    report_fatal_error(Twine("[kagura] cannot lock audit log: ") +
+                       toString(Lock.takeError()), false);
+  OS << json::Value(std::move(Record)) << "\n";
+  OS.flush(); // Keep the lock until the entire JSONL record reaches the file.
+  if (OS.has_error())
+    report_fatal_error("[kagura] cannot write audit log", false);
 
   return PreservedAnalyses::all();
 }

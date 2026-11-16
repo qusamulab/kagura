@@ -16,6 +16,7 @@
 
 #include "kagura/Options.h"
 #include "kagura/Passes.h"
+#include "Support/AuditedPass.h"
 
 #include "llvm/Config/llvm-config.h"
 #include "llvm/Pass.h"
@@ -42,7 +43,7 @@ llvm::PassPluginLibraryInfo getKaguraPluginInfo() {
                    ArrayRef<PassBuilder::PipelineElement>) -> bool {
 #define KAGURA_FN_PASS(Flag, Cli, Desc, Ctor)                                  \
                   if (Name == Cli) {                                           \
-                    FPM.addPass(Ctor);                                         \
+                    FPM.addPass(auditedFunction(Ctor, Cli));                   \
                     return true;                                               \
                   }
 #include "kagura/PassRegistry.def"
@@ -60,7 +61,7 @@ llvm::PassPluginLibraryInfo getKaguraPluginInfo() {
                    ArrayRef<PassBuilder::PipelineElement>) -> bool {
 #define KAGURA_MOD_PASS(Flag, Cli, Desc, Ctor)                                 \
                   if (Name == Cli) {                                           \
-                    MPM.addPass(Ctor);                                         \
+                    MPM.addPass(auditedModule(Ctor, Cli));                     \
                     return true;                                               \
                   }
 #include "kagura/PassRegistry.def"
@@ -70,7 +71,10 @@ llvm::PassPluginLibraryInfo getKaguraPluginInfo() {
                   // parseable by name from the shared registry table.
 #define KAGURA_INFRA_PASS(Cli, Ctor)                                           \
                   if (Name == Cli) {                                           \
-                    MPM.addPass(Ctor);                                         \
+                    if (Name == "kagura-vtp")                                \
+                      MPM.addPass(auditedModule(Ctor, Cli));                   \
+                    else                                                      \
+                      MPM.addPass(Ctor);                                       \
                     return true;                                               \
                   }
 #include "kagura/PassRegistry.def"
@@ -128,15 +132,17 @@ llvm::PassPluginLibraryInfo getKaguraPluginInfo() {
                     // Lightweight subset at O0: string encryption and
                     // anti-debug only. Bounded, predictable overhead.
                     if (opt::STR)
-                      MPM.addPass(StringEncryptionPass());
+                      MPM.addPass(auditedModule(StringEncryptionPass(), "kagura-str"));
                     if (opt::STRAES)
-                      MPM.addPass(StringEncryptionAESPass());
+                      MPM.addPass(auditedModule(StringEncryptionAESPass(), "kagura-str-aes"));
                     if (opt::WSTR)
-                      MPM.addPass(WideStringEncryptionPass());
+                      MPM.addPass(auditedModule(WideStringEncryptionPass(), "kagura-wstr"));
                     if (opt::AntiDebug)
-                      MPM.addPass(AntiDebugPass());
+                      MPM.addPass(auditedModule(AntiDebugPass(), "kagura-anti-debug"));
                     if (opt::DWARFMode != "keep")
                       MPM.addPass(DWARFControlPass());
+                    if (opt::AuditLog)
+                      MPM.addPass(AuditLogPass());
                     return;
                   }
                   // Snapshot BEFORE obfuscation
@@ -154,7 +160,7 @@ llvm::PassPluginLibraryInfo getKaguraPluginInfo() {
                   // --- Module-level passes (table-driven) ---
 #define KAGURA_MOD_PASS(Flag, Cli, Desc, Ctor)                                 \
                   if (opt::Flag)                                               \
-                    MPM.addPass(Ctor);
+                    MPM.addPass(auditedModule(Ctor, Cli));
 #include "kagura/PassRegistry.def"
 
                   // --- Function-level passes (table-driven) ---
@@ -162,7 +168,7 @@ llvm::PassPluginLibraryInfo getKaguraPluginInfo() {
                   bool HasFunctionPass = false;
 #define KAGURA_FN_PASS(Flag, Cli, Desc, Ctor)                                  \
                   if (opt::Flag) {                                             \
-                    FPM.addPass(Ctor);                                         \
+                    FPM.addPass(auditedFunction(Ctor, Cli));                   \
                     HasFunctionPass = true;                                    \
                   }
 #include "kagura/PassRegistry.def"
@@ -184,7 +190,7 @@ llvm::PassPluginLibraryInfo getKaguraPluginInfo() {
                   // Before the symbol map: VTP is the last pass that renames
                   // anything (the _ZTS* type strings).
                   if (opt::VTP)
-                    MPM.addPass(VTableProtectionPass());
+                    MPM.addPass(auditedModule(VTableProtectionPass(), "kagura-vtp"));
 
                   // --- Symbol map output ---
                   // Run last so all obfuscated names are already in place.

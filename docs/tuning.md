@@ -19,7 +19,7 @@ These five, and only these five, are the `"tuning"` object.
 
 | Option | JSON key | Default | Description |
 |:-------|:---------|:--------|:------------|
-| `-kagura-seed=<N>` | `seed` | `0` (entropy) | PRNG seed for reproducible output |
+| `-kagura-seed=<N>` | `seed` | `0` (fixed default) | PRNG seed for reproducible output |
 | `-kagura-bcf-prob=<N>` | `bcf_prob` | `30` | Bogus CF probability per BB [0-100] |
 | `-kagura-bcf-iter=<N>` | `bcf_iter` | `1` | Bogus CF iterations |
 | `-kagura-sub-iter=<N>` | `sub_iter` | `1` | Substitution iterations |
@@ -51,7 +51,7 @@ Structural passes such as `fla`, `bcf` and `vm` never run at `-O0`.
 | `-kagura-metrics` | — | `false` | Print before/after obfuscation metrics |
 | `-kagura-symmap` | — | `false` | Emit symbol map after obfuscation |
 | `-kagura-symmap-out=<path>` | — | `kagura_symbols.json` | Output file for symbol map |
-| `-kagura-audit` | — | `false` | Emit audit log of all protected symbols |
+| `-kagura-audit` | — | `false` | Emit observed pass changes and symbol audit |
 | `-kagura-audit-out=<path>` | `audit_out` (root) | `kagura_audit.json` | Output file for audit log |
 
 ## Symbol filters
@@ -85,6 +85,34 @@ than being silently ignored as it used to be.
 
 ## Reproducibility
 
-Setting `-kagura-seed=<N>` to a non-zero value makes the entire pipeline
-deterministic. Pair with `scripts/ci/verify-reproducible.sh` to confirm two
+The default seed is fixed; `-kagura-seed=<N>` selects another reproducible
+stream, and `-kagura-build-id=<id>` mixes in a build identifier. Each pass and
+function owns its derived stream, so processing another module or drawing in
+another pass does not advance it. Relative source filenames retain their
+project directories; absolute filenames use their basename for checkout
+independence. Use stable project-relative input paths to distinguish
+same-basename sources. Stream
+partitioning changes the output of earlier Kagura versions at the same seed.
+Pair with `scripts/ci/verify-reproducible.sh` to confirm two
 builds produce byte-identical IR — see [Testing & Evaluation](testing.md).
+
+## Audit results
+
+`-kagura-audit` writes one JSON object per module to the append-only JSONL file.
+`functions` lists functions whose IR or referenced global storage changed;
+`pass_results` records observed registered transformation invocations with
+`pass`, `scope`, `name` and `status` (`changed` or `unchanged`). Named passes,
+the automatic pipeline, VTableProtection and the O0 protection subset use the
+same observation mechanism. Audit collection adds IR fingerprinting work only
+when enabled.
+
+`unchanged` groups excluded functions, unsupported inputs and inputs with no
+eligible transformation. A missing result means the pass was not observed;
+for example, an LTO-gated or disabled pass has no entry. These observations do
+not measure protection strength or establish working runtime enforcement.
+The infrastructure passes for policy, metrics, debug information and symbol
+maps are outside this transformation audit.
+
+Writers serialize each complete record across threads and processes; an
+unwritable or unlockable output fails compilation. Use a fresh output path per
+build because appending does not remove records from previous builds.
