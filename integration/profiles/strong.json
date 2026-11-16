@@ -2,7 +2,6 @@
   "_generated": "DO NOT EDIT — generated from lib/Transforms/Profiles.def by scripts/ci/gen-profiles.py",
   "profile": "STRONG",
   "passes": {
-    "str": true,
     "str_aes": true,
     "wstr": true,
     "fla": true,
@@ -21,6 +20,7 @@
     "anti_debug": true,
     "tamper": true,
 
+    "str": false,
     "fsplit": false,
     "pe": false,
     "vm": false

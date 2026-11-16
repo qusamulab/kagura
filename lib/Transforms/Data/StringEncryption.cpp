@@ -201,12 +201,14 @@ PreservedAnalyses StringEncryptionPass::run(Module &M,
     return PreservedAnalyses::all();
 
   LLVMContext &Ctx = M.getContext();
-  auto &RNG        = getModulePRNG(M);
+  auto RNG = getModulePRNG(M, "StringEncryption");
   bool Changed     = false;
 
   auto *Int8Ty = Type::getInt8Ty(Ctx);
 
   for (auto *GV : Strings) {
+    if (!stringUsersAllowProtection(*GV, "str"))
+      continue;
     if (!(opt::StringScoped && hasOnlyScopedStringUses(GV)) &&
         !opt::StringAggressive && !hasOnlyGuardableUses(GV))
       continue;

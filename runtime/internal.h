@@ -461,6 +461,13 @@ int  kagura_invariant_range_i32(void *ctx);
 int  kagura_invariant_nonzero(void *ctx);
 
 /* integrity_report.c */
+#ifndef KAGURA_REPORT_SIGNER_DEFINED
+#define KAGURA_REPORT_SIGNER_DEFINED
+typedef int (*kagura_report_signer)(const uint8_t *body, size_t len,
+                                   uint8_t mac[32], void *userdata);
+#endif
+int kagura_integrity_report_build_signed(const char *nonce, char *out_buf,
+        size_t buf_len, kagura_report_signer signer, void *userdata);
 int  kagura_nonce_is_fresh(const char *nonce, size_t len);
 void kagura_nonce_consume(const char *nonce, size_t len);
 int  kagura_integrity_report_build(const char *nonce,

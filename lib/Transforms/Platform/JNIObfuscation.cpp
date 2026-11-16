@@ -206,7 +206,7 @@ PreservedAnalyses JNIObfuscationPass::run(Module &M,
       return PreservedAnalyses::all();
   }
 
-  auto &RNG = getModulePRNG(M);
+  auto RNG = getModulePRNG(M, "JNIObfuscation");
 
   SmallVector<Function *, 16> JNIFuncs;
   for (auto &F : M) {

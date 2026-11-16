@@ -77,7 +77,7 @@ PreservedAnalyses PointerEncryptionPass::run(Function &F,
   LLVMContext &Ctx = F.getContext();
   const DataLayout &DL = F.getParent()->getDataLayout();
 
-  PRNG &RNG    = getModulePRNG(*F.getParent());
+  auto RNG = getModulePRNG(*F.getParent(), ("PointerEncryption:" + F.getName()).str());
   bool Changed = false;
 
   // Collect eligible pointer allocas upfront (avoid invalidation).

@@ -110,7 +110,7 @@ KAGURA_TUNING(BCFProb, "kagura-bcf-prob", uint32_t, 30, "Bogus CF probability [0
 KAGURA_TUNING(BCFIter, "kagura-bcf-iter", uint32_t,  1, "Bogus CF iterations")
 KAGURA_TUNING(SUBIter, "kagura-sub-iter", uint32_t,  1, "Substitution iterations")
 KAGURA_TUNING(DCIProb, "kagura-dci-prob", uint32_t, 40, "Dead code insertion probability [0-100]")
-KAGURA_TUNING(Seed,    "kagura-seed",     uint64_t,  0, "PRNG seed (0 = entropy)")
+KAGURA_TUNING(Seed,    "kagura-seed",     uint64_t,  0, "PRNG seed (0 = deterministic default)")
 
 #undef KAGURA_FN_PASS
 #undef KAGURA_MOD_PASS

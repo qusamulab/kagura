@@ -136,18 +136,21 @@ PreservedAnalyses StringEncryptionAESPass::run(Module &M,
     return PreservedAnalyses::all();
 
   LLVMContext &Ctx = M.getContext();
-  auto &RNG        = getModulePRNG(M);
+  auto RNG = getModulePRNG(M, "StringEncryptionAES");
   bool Changed     = false;
-
-  FunctionCallee RuntimeDecrypt   = getOrDeclareRuntimeDecrypt(M);
-  FunctionCallee BlobIntegrity    = getOrDeclareBlobIntegrity(M);
 
   auto *Int8Ty = Type::getInt8Ty(Ctx);
 
   for (auto *GV : Strings) {
+    if (!stringUsersAllowProtection(*GV, "str") ||
+        !stringUsersAllowProtection(*GV, "str-aes"))
+      continue;
     if (!(opt::StringScoped && hasOnlyScopedStringUses(GV)) &&
         !opt::StringAggressive && !hasOnlyGuardableUses(GV))
       continue;
+
+    FunctionCallee RuntimeDecrypt = getOrDeclareRuntimeDecrypt(M);
+    FunctionCallee BlobIntegrity = getOrDeclareBlobIntegrity(M);
 
     auto *CDA = cast<ConstantDataArray>(GV->getInitializer());
     StringRef Raw = CDA->getRawDataValues();

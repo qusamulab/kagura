@@ -40,6 +40,9 @@ else()
     Passes
     Analysis
     TransformUtils
+    AllTargetsCodeGens
+    AllTargetsInfos
+    AllTargetsDescs
   )
 endif()
 

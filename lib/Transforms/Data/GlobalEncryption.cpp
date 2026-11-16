@@ -327,7 +327,7 @@ PreservedAnalyses GlobalEncryptionPass::run(Module &M,
   if (Eligible.empty())
     return PreservedAnalyses::all();
 
-  PRNG &RNG    = getModulePRNG(M);
+  auto RNG = getModulePRNG(M, "GlobalEncryption");
   bool Changed = false;
 
   for (auto &EG : Eligible) {

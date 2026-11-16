@@ -44,6 +44,11 @@ bool hasAnnotation(llvm::Function &F, llvm::StringRef Attr);
 bool shouldObfuscate(llvm::Function &F, llvm::StringRef PassAttr,
                      bool GlobalFlag = true);
 
+/// All reachable user functions must permit transforming this shared storage.
+/// Reject a mixed policy instead of cloning address-observable literals.
+bool stringUsersAllowProtection(const llvm::GlobalVariable &GV,
+                               llvm::StringRef PassAttr);
+
 /// Returns true if Name is a symbol kagura itself generated.
 ///
 /// Passes must not obfuscate their own helpers, and SymbolMap must not report
@@ -148,15 +153,11 @@ private:
   uint64_t State;
 };
 
-/// Returns the PRNG for M, seeded from -kagura-seed / -kagura-build-id mixed
-/// with M's module identifier.
-///
-/// The module argument is not decoration. This used to be a process-global
-/// instance shared by every module that passed through the process, each one
-/// continuing the previous one's draw sequence. ThinLTO's parallel in-process
-/// backends raced on it, and any embedder driving several modules through one
-/// pipeline got keys that depended on compilation order.
-PRNG &getModulePRNG(const llvm::Module &M);
+/// Create an independent stream for a pass (and function, for function passes).
+/// Call once per pass invocation and keep the returned state locally. Relative
+/// source names distinguish project directories; absolute names use a basename
+/// to preserve reproducibility across checkout locations.
+PRNG getModulePRNG(const llvm::Module &M, llvm::StringRef Stream = {});
 
 /// A random N-bit value, already narrowed so it can be handed to APInt or
 /// ConstantInt without asserting.

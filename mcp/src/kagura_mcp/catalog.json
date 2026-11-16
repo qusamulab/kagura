@@ -181,7 +181,7 @@
       "flag": "-kagura-seed",
       "type": "uint64_t",
       "default": 0,
-      "description": "PRNG seed (0 = entropy)"
+      "description": "PRNG seed (0 = deterministic default)"
     }
   },
   "profiles": {
@@ -249,7 +249,7 @@
     },
     "STRONG": {
       "passes": {
-        "str": true,
+        "str": false,
         "str_aes": true,
         "wstr": true,
         "fla": true,

@@ -1,54 +1,11 @@
-/*===-- runtime/integrity_report.c - Integrity report signing + nonce ----===
- *
- * Integrity report signing with replay prevention and
- *                  nonce / challenge-response for server coordination.
- *
- * Architecture
- * ------------
- * The client (this module) produces a signed integrity report that the server
- * can verify.  The flow is:
- *
- *   1. Server sends a challenge: { "nonce": "<hex32>", "timestamp": <unix> }
- *   2. Client calls kagura_integrity_report_build() with the nonce to produce
- *      a report JSON containing:
- *        - device_key_hash (FNV-1a-64 of kagura_device_key())
- *        - behavior_score  (from kagura_behavior_score())
- *        - violation_flags (bitmask of active tamper signals)
- *        - nonce           (echoed from server challenge)
- *        - timestamp       (current UNIX time)
- *      The report is HMAC-SHA256 signed with the device key.
- *
- *   3. Client sends the signed report to the server.
- *   4. Server verifies:
- *        a. Signature matches (uses the expected device key hash).
- *        b. Nonce matches the challenge it sent.
- *        c. Timestamp is within acceptable window (±5 min).
- *        d. Violation flags are below threshold.
- *
- * Replay prevention:
- *   - Nonces are stored in a fixed-size ring buffer (NONCE_HISTORY = 32).
- *   - kagura_nonce_is_fresh() returns 0 if the nonce was seen before.
- *   - Nonces older than NONCE_TTL_SECS (300s) are evicted automatically.
- *   - A nonce longer than NONCE_MAX_LEN (64) is rejected by both halves of the
- *     API rather than truncated, so the stored form always compares equal to
- *     the value it was recorded from.
- *
- * HMAC-SHA256 note:
- *   We use a simple HMAC construction over the kagura AES infrastructure.
- *   For production use, replace with a full SHA-256 implementation.
- *   Here we use FNV-1a-64 as a lightweight MAC (not cryptographically strong
- *   but sufficient for tamper signalling without a heavy crypto dependency).
- *
- * Public API
- * ----------
- *   int   kagura_nonce_is_fresh(const char *nonce_hex, size_t len);
- *   void  kagura_nonce_consume(const char *nonce_hex, size_t len);
- *   int   kagura_integrity_report_build(const char *nonce,
- *                                       char *out_buf, size_t buf_len);
- *
- *===----------------------------------------------------------------------===*/
+/* Authenticated application reports. Version 2 requires a caller-supplied
+ * HMAC-SHA256 signer; there is no device-fingerprint-based authentication.
+ * The server must verify that MAC and atomically consume its own challenge.
+ * The bounded local replay cache is a convenience, not server-side protection.
+ */
 
 #include "../internal.h"
+#include "../lock.h"
 
 #include <stdint.h>
 #include <stddef.h>
@@ -56,8 +13,7 @@
 #include <stdio.h>
 #include <time.h>
 
-/* ---- FNV-1a-64 MAC -------------------------------------------------------- */
-/* Shared implementation in core/hash.c. */
+/* ---- Device identifier hash (not authentication) ------------------------- */
 
 #define fnv1a64(data, len) kagura_fnv1a64_buf((data), (len))
 
@@ -74,51 +30,56 @@ typedef struct {
 
 static nonce_entry_t g_nonce_ring[NONCE_HISTORY];
 static int           g_nonce_head = 0;
+static kagura_lock_t g_nonce_lock = KAGURA_LOCK_INIT;
 
-/*
- * kagura_nonce_is_fresh — returns 1 if nonce has not been seen before
- * and is not expired, 0 if it was already used (replay).
- */
-int kagura_nonce_is_fresh(const char *nonce, size_t len) {
-    if (!nonce || len == 0) return 0;
-    /* An over-long nonce is rejected, not truncated.  kagura_nonce_consume()
-     * stores at most NONCE_MAX_LEN characters, while the comparison below is
-     * `elen == len && memcmp(...)`, so a nonce of 65 characters or more could
-     * never equal its own truncated stored form: it looked fresh on every
-     * single presentation and replay protection did not exist for it.  Making
-     * both ends refuse the same inputs is what keeps store and compare in
-     * agreement; a caller that presents one gets "not fresh", the safe answer. */
-    if (len > NONCE_MAX_LEN) return 0;
-    time_t now = time(NULL);
+static int valid_nonce(const char *nonce, size_t len) {
+    if (!nonce || !len || len > NONCE_MAX_LEN) return 0;
+    for (size_t i = 0; i < len; ++i) {
+        unsigned char c = (unsigned char)nonce[i];
+        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
+              (c >= 'A' && c <= 'F'))) return 0;
+    }
+    return 1;
+}
+
+/* Caller holds g_nonce_lock. Clock rollback retains entries conservatively. */
+static int nonce_fresh_locked(const char *nonce, size_t len, time_t now) {
     for (int i = 0; i < NONCE_HISTORY; ++i) {
         nonce_entry_t *e = &g_nonce_ring[i];
-        if (e->value[0] == '\0') continue;
-        /* Evict expired entries */
-        if (now - e->seen_at > NONCE_TTL_SECS) {
+        if (!e->value[0]) continue;
+        if (now >= e->seen_at && difftime(now, e->seen_at) > NONCE_TTL_SECS) {
             e->value[0] = '\0';
             continue;
         }
-        size_t elen = strlen(e->value);
-        if (elen == len && memcmp(e->value, nonce, len) == 0) {
-            return 0; /* replay detected */
-        }
+        if (strlen(e->value) == len && memcmp(e->value, nonce, len) == 0)
+            return 0;
     }
-    return 1; /* fresh */
+    return 1;
 }
 
-/*
- * kagura_nonce_consume — record nonce as used; call after validating freshness.
- */
-void kagura_nonce_consume(const char *nonce, size_t len) {
-    if (!nonce || len == 0) return;
-    /* Same bound as kagura_nonce_is_fresh(): storing a truncated prefix would
-     * record a value that can never match the nonce it came from. */
-    if (len > NONCE_MAX_LEN) return;
-    nonce_entry_t *slot = &g_nonce_ring[g_nonce_head % NONCE_HISTORY];
+static void nonce_store_locked(const char *nonce, size_t len, time_t now) {
+    nonce_entry_t *slot = &g_nonce_ring[g_nonce_head];
     memcpy(slot->value, nonce, len);
     slot->value[len] = '\0';
-    slot->seen_at = time(NULL);
+    slot->seen_at = now;
     g_nonce_head = (g_nonce_head + 1) % NONCE_HISTORY;
+}
+
+int kagura_nonce_is_fresh(const char *nonce, size_t len) {
+    if (!valid_nonce(nonce, len)) return 0;
+    kagura_lock(&g_nonce_lock);
+    int fresh = nonce_fresh_locked(nonce, len, time(NULL));
+    kagura_unlock(&g_nonce_lock);
+    return fresh;
+}
+
+void kagura_nonce_consume(const char *nonce, size_t len) {
+    if (!valid_nonce(nonce, len)) return;
+    kagura_lock(&g_nonce_lock);
+    time_t now = time(NULL);
+    if (nonce_fresh_locked(nonce, len, now))
+        nonce_store_locked(nonce, len, now);
+    kagura_unlock(&g_nonce_lock);
 }
 
 /* ---- Device key hash ------------------------------------------------------ */
@@ -217,69 +178,62 @@ static uint32_t collect_violation_flags(void) {
     return flags;
 }
 
-/* ---- Report builder ------------------------------------------------------- */
+/* ---- Report builder ---------------------------------------------------- */
 
-/*
- * kagura_integrity_report_build — build a JSON integrity report string.
- *
- * Parameters:
- *   nonce    — server-provided nonce string (hex, max 64 chars)
- *   out_buf  — caller-provided buffer for the JSON output
- *   buf_len  — size of out_buf (must be >= 256)
- *
- * Returns the number of bytes written (excluding NUL), or -1 on error.
- *
- * Report format:
- *   {
- *     "device_key_hash": "<hex16>",
- *     "behavior_score": <int>,
- *     "violation_flags": <uint32>,
- *     "nonce": "<nonce>",
- *     "timestamp": <unix>,
- *     "mac": "<hex16>"
- *   }
- *
- * The "mac" field is FNV-1a-64 over all fields above (as a UTF-8 string)
- * XOR'd with the device key hash, providing a lightweight integrity seal.
- */
-int kagura_integrity_report_build(const char *nonce,
-                                   char *out_buf, size_t buf_len) {
-    if (!nonce || !out_buf || buf_len < 256) return -1;
+int kagura_integrity_report_build_signed(const char *nonce, char *out_buf,
+        size_t buf_len, kagura_report_signer signer, void *userdata) {
+    if (!out_buf || !buf_len) return -1;
+    out_buf[0] = '\0';
+    if (!nonce || !signer) return -1;
+    size_t len = 0;
+    while (len <= NONCE_MAX_LEN && nonce[len]) ++len;
+    if (!valid_nonce(nonce, len) || !kagura_nonce_is_fresh(nonce, len)) return -1;
 
-    uint64_t dk_hash  = get_device_key_hash();
-    /* Was `kagura_behavior_score`, a name behavior_log.c has never exported. */
-    int      bscore   = kagura_suspicion_score();
-    uint32_t vflags   = collect_violation_flags();
-    time_t   ts       = time(NULL);
-
-    /* Build the unsigned body first */
+    uint64_t dk_hash = get_device_key_hash(); /* Identifier only, never a key. */
+    int bscore = kagura_suspicion_score();
+    uint32_t vflags = collect_violation_flags();
+    time_t ts = time(NULL);
     char body[512];
     int body_len = snprintf(body, sizeof(body),
-        "{\"device_key_hash\":\"%016llx\","
-        "\"behavior_score\":%d,"
-        "\"violation_flags\":%u,"
-        "\"nonce\":\"%s\","
-        "\"timestamp\":%ld}",
-        (unsigned long long)dk_hash, bscore, vflags, nonce, (long)ts);
+        "{\"version\":2,\"mac_algorithm\":\"HMAC-SHA256\","
+        "\"device_key_hash\":\"%016llx\",\"behavior_score\":%d,"
+        "\"violation_flags\":%u,\"nonce\":\"%s\",\"timestamp\":%lld}",
+        (unsigned long long)dk_hash, bscore, vflags, nonce, (long long)ts);
     if (body_len <= 0 || (size_t)body_len >= sizeof(body)) return -1;
 
-    /* MAC = FNV-1a-64(body) XOR dk_hash */
-    uint64_t mac = fnv1a64((const uint8_t *)body, (size_t)body_len) ^ dk_hash;
+    uint8_t mac[32] = {0};
+    // The signer owns key provisioning and may use a hardware-backed service.
+    // No lock is held during detector or application calls.
+    if (signer((const uint8_t *)body, (size_t)body_len, mac, userdata) != 1) {
+        kagura_zero_buf(mac, sizeof(mac));
+        return -1;
+    }
+    char hex[65];
+    static const char digits[] = "0123456789abcdef";
+    for (size_t i = 0; i < sizeof(mac); ++i) {
+        hex[2*i] = digits[mac[i] >> 4];
+        hex[2*i+1] = digits[mac[i] & 15];
+    }
+    hex[64] = '\0';
+    kagura_zero_buf(mac, sizeof(mac));
+    char report[640];
+    int n = snprintf(report, sizeof(report), "%.*s,\"mac\":\"%s\"}",
+                     body_len - 1, body, hex);
+    if (n <= 0 || (size_t)n >= sizeof(report) || (size_t)n >= buf_len) return -1;
 
-    /* Write final report with mac appended */
-    int n = snprintf(out_buf, buf_len,
-        "{\"device_key_hash\":\"%016llx\","
-        "\"behavior_score\":%d,"
-        "\"violation_flags\":%u,"
-        "\"nonce\":\"%s\","
-        "\"timestamp\":%ld,"
-        "\"mac\":\"%016llx\"}",
-        (unsigned long long)dk_hash, bscore, vflags, nonce, (long)ts,
-        (unsigned long long)mac);
-    if (n <= 0 || (size_t)n >= buf_len) return -1;
-
-    /* Record nonce as consumed to prevent replay */
-    kagura_nonce_consume(nonce, strlen(nonce));
-
+    // Check and consume atomically at commit; concurrent attempts cannot both
+    // return a report. Failed signing/buffer attempts do not consume a nonce.
+    kagura_lock(&g_nonce_lock);
+    time_t now = time(NULL);
+    int fresh = nonce_fresh_locked(nonce, len, now);
+    if (fresh) nonce_store_locked(nonce, len, now);
+    kagura_unlock(&g_nonce_lock);
+    if (!fresh) return -1;
+    memcpy(out_buf, report, (size_t)n + 1);
     return n;
+}
+
+int kagura_integrity_report_build(const char *nonce, char *out_buf, size_t buf_len) {
+    // Retain the ABI, but never produce the forgeable legacy report.
+    return kagura_integrity_report_build_signed(nonce, out_buf, buf_len, NULL, NULL);
 }

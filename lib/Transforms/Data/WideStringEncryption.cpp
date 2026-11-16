@@ -369,7 +369,7 @@ PreservedAnalyses WideStringEncryptionPass::run(Module &M,
   // sets the flag — so re-checking it made that entry point a silent no-op.
   // See the note on shouldObfuscate() in Utils.h.
 
-  auto &RNG    = getModulePRNG(M);
+  auto RNG = getModulePRNG(M, "WideStringEncryption");
   bool Changed = false;
 
   // ---- Wide strings (i16 / i32 ConstantDataArray) -------------------------
@@ -382,6 +382,8 @@ PreservedAnalyses WideStringEncryptionPass::run(Module &M,
   auto *Int8Ty = Type::getInt8Ty(M.getContext());
 
   for (auto *GV : WideTargets) {
+    if (!stringUsersAllowProtection(*GV, "wstr"))
+      continue;
     if (opt::StringAggressive ? !canProtectStringAtStartup(*GV)
                               : !hasOnlyGuardableUses(GV))
       continue;
@@ -442,6 +444,8 @@ PreservedAnalyses WideStringEncryptionPass::run(Module &M,
     GlobalVariable *CharGV = extractCFStringChars(&GV);
     if (!CharGV)
       continue;
+    if (!stringUsersAllowProtection(*CharGV, "wstr"))
+      continue;
     auto *CDA = dyn_cast<ConstantDataArray>(CharGV->getInitializer());
     if (!CDA || !CDA->isString())
       continue;
@@ -463,6 +467,8 @@ PreservedAnalyses WideStringEncryptionPass::run(Module &M,
   for (auto &GV : M.globals()) {
     if (!isSwiftStringGlobal(GV))
       continue;
+    if (!stringUsersAllowProtection(GV, "wstr"))
+      continue;
     Function *Stub = encryptNarrowStringInPlace(
         M, const_cast<GlobalVariable &>(GV), RNG, "swift_");
     if (!Stub)
@@ -482,6 +488,8 @@ PreservedAnalyses WideStringEncryptionPass::run(Module &M,
 
   for (auto &GV : M.globals()) {
     if (!isKotlinStringGlobal(GV))
+      continue;
+    if (!stringUsersAllowProtection(GV, "wstr"))
       continue;
     Function *Stub = encryptNarrowStringInPlace(
         M, const_cast<GlobalVariable &>(GV), RNG, "kotlin_");

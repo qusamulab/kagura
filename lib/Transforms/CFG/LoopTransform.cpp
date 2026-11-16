@@ -332,7 +332,7 @@ PreservedAnalyses LoopTransformPass::run(Function &F,
     return PreservedAnalyses::all();
 
   auto &LI  = FAM.getResult<LoopAnalysis>(F);
-  auto &RNG = getModulePRNG(*F.getParent());
+  auto RNG = getModulePRNG(*F.getParent(), ("LoopTransform:" + F.getName()).str());
 
   if (LI.empty())
     return PreservedAnalyses::all();

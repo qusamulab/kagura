@@ -133,6 +133,7 @@ static bool processGlobal(Module &M, GlobalVariable *GV, PRNG &RNG,
                           uint32_t StringIdx) {
   if (!GV->isConstant()) return false;
   if (!GV->hasInitializer()) return false;
+  if (!stringUsersAllowProtection(*GV, "string-split")) return false;
   auto *Init = dyn_cast<ConstantDataArray>(GV->getInitializer());
   if (!Init) return false;
   if (!Init->isString()) return false;
@@ -247,7 +248,7 @@ static bool processGlobal(Module &M, GlobalVariable *GV, PRNG &RNG,
 }
 
 PreservedAnalyses StringSplitPass::run(Module &M, ModuleAnalysisManager &) {
-  auto &RNG    = getModulePRNG(M);
+  auto RNG = getModulePRNG(M, "StringSplit");
   bool Changed = false;
   uint32_t Idx = 0;
 

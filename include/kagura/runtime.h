@@ -266,14 +266,34 @@ int      kagura_seed_tampered(const kagura_seed_t *s);
  * Behaviour logging and integrity reports  (runtime/game/)
  * =========================================================================== */
 
+/* Thread-safe; not async-signal-safe. Flush invokes callbacks on a snapshot
+ * outside the lock and does not clear events. Callbacks may log or clear. */
 void kagura_log_event(uint8_t type, uint32_t detail);
 int  kagura_event_count(uint8_t type);
 int  kagura_suspicion_score(void);
 void kagura_clear_events(void);
+void kagura_flush_events(void (*cb)(uint8_t type, uint32_t detail, void *userdata),
+                         void *userdata);
 
-/* Build a nonce-bound integrity report for your server to evaluate. Returns
- * the number of bytes written to out_buf, or -1 on failure. `buf_len` must be
- * at least 256. */
+/* Version 2: signer must compute HMAC-SHA256 over the exact supplied bytes,
+ * using an independently provisioned secret shared with the server, write
+ * 32 MAC bytes, and return 1. No built-in key or fingerprint is trusted.
+ * The server reconstructs the body by removing the final ,"mac":"..." field
+ * and closing the object, verifies its MAC, and consumes its own challenge.
+ * Local replay tracking is bounded to 32 entries / 300 seconds and is not a
+ * replacement for server-side replay prevention. Nonces are 1-64 hex chars.
+ * Calls are thread-safe (not signal-safe); callbacks run without a lock.
+ * Returns byte count, or -1 with an empty output on invalid/reused nonce,
+ * signing failure, or insufficient space. Failure does not consume a nonce. */
+#ifndef KAGURA_REPORT_SIGNER_DEFINED
+#define KAGURA_REPORT_SIGNER_DEFINED
+typedef int (*kagura_report_signer)(const uint8_t *body, size_t len,
+                                   uint8_t mac[32], void *userdata);
+#endif
+int kagura_integrity_report_build_signed(const char *nonce, char *out_buf,
+        size_t buf_len, kagura_report_signer signer, void *userdata);
+
+/* Legacy ABI: always returns -1. Migrate to build_signed with a real signer. */
 int  kagura_integrity_report_build(const char *nonce,
                                    char *out_buf, size_t buf_len);
 

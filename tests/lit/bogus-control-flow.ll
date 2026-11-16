@@ -1,11 +1,10 @@
-; RUN: %opt -load-pass-plugin=%kagura_plugin -passes=kagura-bcf -S %s | %FileCheck %s
+; RUN: %opt -load-pass-plugin=%kagura_plugin -kagura-bcf-prob=100 -passes='function(kagura-bcf),verify' -S %s | %FileCheck %s
 
 ; After bogus CF, the function must still have a ret instruction (correctness)
 ; CHECK: define i32 @classify
+; CHECK: br i1 %bcf.pred
+; CHECK: bcf.bogus
 ; CHECK: ret i32
-
-; Bogus blocks use a conditional branch on an opaque predicate
-; CHECK: br i1
 
 define i32 @classify(i32 %x) {
 entry:

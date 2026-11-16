@@ -255,7 +255,7 @@ PreservedAnalyses VTableProtectionPass::run(Module &M, ModuleAnalysisManager &) 
     if (!kagura::opt::VTP)
         return PreservedAnalyses::all();
 
-    PRNG &RNG = getModulePRNG(M);
+    auto RNG = getModulePRNG(M, "VTableProtection");
     bool Changed = false;
 
     SmallVector<GlobalVariable *, 32> VTables;

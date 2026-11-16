@@ -106,7 +106,7 @@ cl::opt<std::string> AllowList(
 
 cl::opt<bool> AuditLog(
     "kagura-audit",
-    cl::desc("[Kagura] Emit an audit log of all protected symbols"),
+    cl::desc("[Kagura] Emit observed pass changes and a symbol audit"),
     cl::init(false));
 
 cl::opt<std::string> AuditLogOut(
