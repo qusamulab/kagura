@@ -7,6 +7,8 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-11-17
+
 ### Changed
 
 - Integrity reports require the new `kagura_integrity_report_build_signed`
@@ -33,6 +35,16 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   records and fail compilation if a requested audit output cannot be written.
 - Stop compilation when an explicitly requested policy cannot be read or
   parsed, even without strict unknown-key validation.
+- Align the CocoaPods specification and SwiftPM version constants with the
+  CMake project version, and refresh documentation build dependencies.
+
+### Known limitations
+
+- The anti-debug startup aborts on arm64 macOS documented in v0.4.0 remain
+  unresolved. Validate shipped-profile startup on each deployment target.
+- Signed reports authenticate application-supplied report bytes, not detector
+  correctness or client integrity. Applications must provision signing keys
+  and enforce server-side challenge validation and replay protection.
 
 ## [0.4.0] — 2026-11-04
 

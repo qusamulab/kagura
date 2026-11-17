@@ -42,7 +42,7 @@ Add the package to your own `Package.swift`:
 let package = Package(
     name: "MyApp",
     dependencies: [
-        .package(url: "https://github.com/qusamulab/kagura.git", from: "0.3.0"),
+        .package(url: "https://github.com/qusamulab/kagura.git", from: "0.5.0"),
     ],
     targets: [
         .target(
