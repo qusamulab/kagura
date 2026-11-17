@@ -26,9 +26,9 @@ extern "C" {
 
 /* Keep in sync with project(kagura VERSION ...) in the root CMakeLists.txt. */
 #define KAGURA_VERSION_MAJOR 0
-#define KAGURA_VERSION_MINOR 3
+#define KAGURA_VERSION_MINOR 5
 #define KAGURA_VERSION_PATCH 0
-#define KAGURA_VERSION_STRING "0.3.0"
+#define KAGURA_VERSION_STRING "0.5.0"
 
 /*
  * Tamper callback.
