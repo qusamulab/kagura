@@ -7,8 +7,7 @@
 #
 # Environment:
 #   LLVM_PREFIX   LLVM installation prefix. Auto-detected if unset:
-#                 `llvm-config --prefix`, then `brew --prefix llvm`,
-#                 then a few well-known locations.
+#                 supported llvm-config tools, Homebrew or /usr/lib/llvm-*.
 #   JOBS          Parallel build jobs (default: all logical CPUs).
 #
 # Examples:
@@ -26,38 +25,45 @@ if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
 fi
 
 # ---- Locate LLVM -------------------------------------------------------------
-if [ -z "${LLVM_PREFIX:-}" ]; then
-  for candidate_cmd in llvm-config llvm-config-22 llvm-config-21 llvm-config-19 llvm-config-18 llvm-config-17; do
-    if command -v "$candidate_cmd" > /dev/null 2>&1; then
-      LLVM_PREFIX="$("$candidate_cmd" --prefix)"
-      break
+# llvm-config and Homebrew's unversioned llvm may point to a newer major
+# even when a supported version is installed alongside it.
+supported_prefix() {
+  local prefix="$1" version
+  [[ -f "$prefix/lib/cmake/llvm/LLVMConfig.cmake" &&
+     -x "$prefix/bin/clang" && -x "$prefix/bin/clang++" ]] || return 1
+  version=$("$prefix/bin/llvm-config" --version 2>/dev/null) || return 1
+  [[ "$version" =~ ^(17|18|19|20|21|22)\. ]]
+}
+
+find_llvm_prefix() {
+  local candidates=()
+  local tool prefix brew_prefix
+  for tool in llvm-config llvm-config-{22..17}; do
+    if prefix=$("$tool" --prefix 2>/dev/null); then
+      candidates+=("$prefix")
     fi
   done
-fi
+  if brew_prefix=$(brew --prefix 2>/dev/null); then
+    candidates+=("$brew_prefix/opt/llvm" "$brew_prefix"/opt/llvm@{22..17})
+  fi
+  candidates+=(/usr/lib/llvm-{22..17} /usr/local /usr)
 
-if [ -z "${LLVM_PREFIX:-}" ] && command -v brew > /dev/null 2>&1; then
-  LLVM_PREFIX="$(brew --prefix llvm 2>/dev/null || true)"
-fi
-
-if [ -z "${LLVM_PREFIX:-}" ]; then
-  for candidate_dir in \
-    /opt/homebrew/opt/llvm \
-    /usr/local/opt/llvm \
-    /usr/lib/llvm-22 /usr/lib/llvm-21 /usr/lib/llvm-19 /usr/lib/llvm-18 /usr/lib/llvm-17 \
-    /usr/local /usr
-  do
-    if [ -d "$candidate_dir/lib/cmake/llvm" ]; then
-      LLVM_PREFIX="$candidate_dir"
-      break
+  for prefix in "${candidates[@]}"; do
+    if supported_prefix "$prefix"; then
+      echo "$prefix"
+      return
     fi
   done
-fi
+  return 1
+}
 
-if [ -z "${LLVM_PREFIX:-}" ] || [ ! -d "$LLVM_PREFIX/lib/cmake/llvm" ]; then
-  echo "error: could not find an LLVM installation." >&2
-  echo "       Set LLVM_PREFIX to a prefix containing lib/cmake/llvm, e.g." >&2
-  echo "         macOS: LLVM_PREFIX=\$(brew --prefix llvm) bash build.sh" >&2
-  echo "         Linux: LLVM_PREFIX=/usr/lib/llvm-19 bash build.sh" >&2
+if [[ -z "${LLVM_PREFIX:-}" ]]; then
+  LLVM_PREFIX=$(find_llvm_prefix) || {
+    echo "error: could not find LLVM 17–22. Set LLVM_PREFIX to a matching LLVM installation." >&2
+    exit 1
+  }
+elif [[ ! -f "$LLVM_PREFIX/lib/cmake/llvm/LLVMConfig.cmake" ]]; then
+  echo "error: LLVM_PREFIX=$LLVM_PREFIX does not contain lib/cmake/llvm/LLVMConfig.cmake." >&2
   exit 1
 fi
 
@@ -71,13 +77,6 @@ if [ -z "${JOBS:-}" ]; then
     JOBS=4
   fi
 fi
-
-# ---- Plugin file extension for the closing message ---------------------------
-case "$(uname -s)" in
-  Darwin)          PLUGIN_EXT="dylib" ;;
-  MINGW*|MSYS*|CYGWIN*) PLUGIN_EXT="dll" ;;
-  *)               PLUGIN_EXT="so" ;;
-esac
 
 echo "LLVM prefix : $LLVM_PREFIX"
 echo "Build dir   : $BUILD_DIR"
@@ -100,18 +99,11 @@ cmake -B "$BUILD_DIR" \
 
 cmake --build "$BUILD_DIR" -j"$JOBS"
 
-PLUGIN="$BUILD_DIR/lib/Transforms/KaguraObfuscator.$PLUGIN_EXT"
-
 echo ""
-echo "Plugin: $PLUGIN"
-if [ -x "$BUILD_DIR/bin/kagura-opt" ]; then
-  echo "Tool  : $BUILD_DIR/bin/kagura-opt"
+if [ -x "$BUILD_DIR/bin/kagura" ]; then
+  echo "Usage:"
+  printf '  %q --clang %q -kagura-config=integration/profiles/balanced.json -O1 your_file.c -o your_file\n' \
+    "$BUILD_DIR/bin/kagura" "$LLVM_PREFIX/bin/clang"
 fi
-echo ""
-echo "Usage:"
-echo "  clang -fpass-plugin=$PLUGIN \\"
-echo "        -mllvm -kagura-config=integration/profiles/balanced.json \\"
-echo "        -O1 your_file.c -o your_file"
-echo ""
 echo "Tests:"
-echo "  cd $BUILD_DIR && ctest --output-on-failure"
+printf '  ctest --test-dir %q --output-on-failure\n' "$BUILD_DIR"

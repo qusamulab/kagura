@@ -3,7 +3,7 @@
 === "macOS (Homebrew LLVM)"
 
     ```bash
-    brew install llvm
+    brew install llvm@21
     bash build.sh
     ```
 

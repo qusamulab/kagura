@@ -9,8 +9,9 @@ bash build.sh
 cd build && ctest --output-on-failure
 ```
 
-`build.sh` works on macOS and Linux. It auto-detects LLVM via `llvm-config`,
-`brew --prefix llvm` and the usual `/usr/lib/llvm-<N>` locations; override with
+`build.sh` works on macOS and Linux. It looks for upstream LLVM 17–22 via
+`llvm-config`, versioned Homebrew installations and `/usr/lib/llvm-<N>`.
+Select a specific installation with
 `LLVM_PREFIX=/path/to/llvm bash build.sh`. Extra arguments are forwarded to
 CMake:
 
