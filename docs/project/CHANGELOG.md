@@ -7,6 +7,20 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- AntiDebug and BasicBlockChecksum now resume execution when the application's
+  `kagura_on_tamper_detected` override returns.
+- Correct the documented scope of AntiTamper's entry checks, vtable metadata
+  and Windows ETW stubs.
+- `build.sh` finds a supported, versioned LLVM installation when the default
+  falls outside LLVM 17–22. Its usage example invokes the built compiler driver.
+- Parallel compiler invocations serialize symbol-map records. A symbol-map
+  write failure now fails the compilation and identifies the output path.
+  `symmap-view` reads all appended translation units as well as standalone maps.
+- The CLI and MCP audit readers stream records, report malformed lines and
+  continue counting valid entries. MCP retains only the requested function page.
+
 ## [0.5.0] — 2026-11-17
 
 ### Changed

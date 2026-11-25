@@ -25,7 +25,7 @@ struct AntiDebugPass : public llvm::PassInfoMixin<AntiDebugPass> {
   static bool isRequired() { return false; }
 };
 
-/// Injects compile-time FNV-1a integrity hashes and runtime verification calls.
+/// Passes function addresses and IR opcode fingerprints to the runtime entry checks.
 /// Also inserts kagura_self_check() at main() for jailbreak/root detection.
 struct AntiTamperPass : public llvm::PassInfoMixin<AntiTamperPass> {
   llvm::PreservedAnalyses run(llvm::Module &M,
@@ -33,8 +33,8 @@ struct AntiTamperPass : public llvm::PassInfoMixin<AntiTamperPass> {
   static bool isRequired() { return false; }
 };
 
-/// Injects compile-time opcode checksums and runtime verification
-/// calls into a random subset of basic blocks to detect binary patching.
+/// Emits runtime hook calls with block IDs and IR opcode checksums.
+/// The shipped hook returns intact for every block.
 struct BasicBlockChecksumPass
     : public llvm::PassInfoMixin<BasicBlockChecksumPass> {
   llvm::PreservedAnalyses run(llvm::Function &F,

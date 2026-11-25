@@ -1,27 +1,11 @@
 //===-- AntiTamper.cpp - Integrity-check injection pass -------------------===//
 //
-// Inserts runtime integrity checks into functions so that any post-compile
-// modification of the function body is detected at runtime.
+// Pass each eligible function's address and IR opcode fingerprint to
+// kagura_runtime_hash_check at entry. The shipped runtime inspects selected
+// entry instructions and symbol names. Machine-code hash verification would
+// require a trusted checksum produced after code generation and linking.
 //
-// How it works
-// ------------
-// 1. Compile-time FNV-1a hash
-//    For every eligible function we iterate over all instructions and feed
-//    each instruction's opcode (a stable 32-bit integer) into an FNV-1a hash.
-//    The result is a 32-bit "expected_hash" constant baked into the IR.
-//
-// 2. Runtime verification
-//    At the entry of each eligible function we inject:
-//      kagura_runtime_hash_check(fn_ptr, expected_hash)
-//    The runtime re-hashes the live bytes of the function and calls
-//    kagura_tamper_detected() if the values differ.
-//
-// 3. Self-check at main()
-//    If the module contains a function named "main" we insert a call to
-//      kagura_self_check()
-//    at its very beginning.  The runtime implementation (core/self_check.c)
-//    dispatches to whatever jailbreak / root detection the target has, in
-//    addition to library-level integrity verification.
+// At main entry, kagura_self_check runs the platform's jailbreak/root probes.
 //
 // Eligibility
 // -----------
@@ -64,20 +48,6 @@ namespace kagura {
 //===----------------------------------------------------------------------===//
 
 /// Compute an FNV-1a hash over the sequence of instruction opcodes in F.
-///
-/// We deliberately use opcodes rather than raw machine bytes because:
-///   - The IR is target-independent at this stage.
-///   - Opcodes are stable identifiers: two identical source functions compiled
-///     with the same flags on any target will produce the same hash.
-///   - They avoid sensitivity to alignment padding or jump table offsets that
-///     would make the compile-time and runtime hashes hard to reconcile.
-///
-/// The runtime (kagura_runtime_hash_check) must use the same strategy when
-/// it is implemented at the IR level; the C runtime implementation instead
-/// hashes the actual machine-code bytes, which is intentional: a compile-time
-/// opcode hash is embedded as a constant while the runtime re-hashes the
-/// loaded bytes.  Matching is therefore a structural consistency check rather
-/// than a byte-exact comparison; see core/self_check.c for the approach.
 static uint32_t computeOpcodeHash(const Function &F) {
   uint32_t H = fnv1a32Init();
   for (const BasicBlock &BB : F) {
@@ -122,9 +92,6 @@ static Function *getSelfCheckFn(Module &M) {
 
 /// Declare (or look up):
 ///   void kagura_runtime_hash_check(void *fn_ptr, uint32_t expected_hash)
-///
-/// The runtime re-hashes the bytes of fn_ptr's function body and calls
-/// kagura_tamper_detected() if the result differs from expected_hash.
 static Function *getRuntimeHashCheckFn(Module &M) {
   LLVMContext &Ctx = M.getContext();
   auto *VoidTy   = Type::getVoidTy(Ctx);
@@ -141,8 +108,7 @@ static Function *getRuntimeHashCheckFn(Module &M) {
 //===----------------------------------------------------------------------===//
 
 /// Insert `kagura_self_check()` at the very beginning of `main` before any
-/// user instructions run.  This triggers jailbreak/root detection and library-
-/// level integrity checks at process startup.
+/// user instructions run. This triggers platform-specific jailbreak/root checks.
 static void insertSelfCheckInMain(Function &MainFn, Function *SelfCheckFn) {
   BasicBlock &Entry = MainFn.getEntryBlock();
 
@@ -152,23 +118,12 @@ static void insertSelfCheckInMain(Function &MainFn, Function *SelfCheckFn) {
   B.CreateCall(SelfCheckFn, {});
 }
 
-/// Insert a runtime hash check at the entry of F.
-///
-/// Injected code (conceptually):
-///   kagura_runtime_hash_check(&F, <compile-time opcode hash>)
-///
-/// We pass &F as an opaque pointer so the runtime can compute the memory range
-/// of the function body via platform APIs (dladdr / mach-o segment search).
-/// The compile-time hash is embedded as a 32-bit immediate constant.
+/// Pass the function address and its IR opcode fingerprint to the runtime.
 static void insertHashCheck(Function &F, uint32_t OpcodeHash,
                              Function *HashCheckFn) {
   LLVMContext &Ctx = F.getContext();
   BasicBlock &Entry = F.getEntryBlock();
 
-  // Find the first non-PHI, non-alloca instruction.  We want to insert after
-  // any alloca cluster that establishes the frame because those allocas must
-  // dominate the rest of the function; inserting before them could confuse
-  // mem2reg / SROA later passes (though at -O0 this is rarely an issue).
   Instruction *InsertPt = &*Entry.getFirstInsertionPt();
 
   IRBuilder<> B(InsertPt);
@@ -239,35 +194,17 @@ PreservedAnalyses AntiTamperPass::run(Module &M, ModuleAnalysisManager &) {
 
   // -- Step 1: Insert kagura_self_check() into main() -----------------------
   //
-  // We do this regardless of whether "main" itself is annotated for tamper
-  // checking, because the self-check covers the entire loaded image, not just
-  // individual functions.
+  // The process-wide check also runs when main itself is excluded.
   if (MainFn && !MainFn->isDeclaration()) {
     insertSelfCheckInMain(*MainFn, SelfCheckFn);
     Changed = true;
     errs() << "[kagura] anti-tamper: inserted kagura_self_check() in main\n";
   }
 
-  // -- Step 2: Compute compile-time hashes and inject runtime checks ---------
-  //
-  // IMPORTANT: We compute the opcode hash BEFORE modifying the function body.
-  // The hash reflects the original instruction sequence; the runtime will
-  // re-hash the live bytes *before* the integrity check has run, which means
-  // the check call we are about to insert also contributes to the runtime hash.
-  // To maintain consistency we hash only the original instructions here and
-  // the runtime implementation is expected to skip the preamble prologue that
-  // contains the check call itself (implementation detail of the runtime).
-  //
-  // A simpler but equally valid approach: treat the expected_hash purely as an
-  // "opcode fingerprint" computed at compile time.  Any modification that
-  // changes opcodes (e.g., NOP injection, instruction replacement) will be
-  // caught.  Reordering without opcode change is not caught — that is by design
-  // since legitimate compiler transforms (e.g. code layout) may reorder blocks.
-
+  // Compute each IR fingerprint before inserting its entry check.
   uint32_t TotalInstrumented = 0;
 
   for (Function *F : Targets) {
-    // Compute the hash over the unmodified function body.
     uint32_t Hash = computeOpcodeHash(*F);
 
     errs() << "[kagura] anti-tamper: instrumenting '" << F->getName()

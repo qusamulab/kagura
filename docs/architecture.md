@@ -12,7 +12,7 @@ kagura/
 │   ├── VM.h + VMOpcodes.def  The bytecode contract, shared with the C runtime
 │   └── game_protect.h      Protected<T> — the one consumer-facing header
 ├── lib/Transforms/
-│   ├── ABI/                C++ RTTI names and vtable integrity
+│   ├── ABI/                C++ RTTI names and vtable metadata
 │   ├── AntiAnalysis/       Anti-debug, integrity, call indirection, honey values
 │   ├── CFG/                Control-flow obfuscation passes
 │   ├── Data/               String / constant / global / wide-string / memory-value encryption

@@ -2,7 +2,7 @@
 
 The plugin auto-registers passes via `registerOptimizerLastEPCallback`, so the
 ordering below runs **after** the standard `-O1` / `-O2` optimizations.
-Ordering matters: e.g. `kagura-tamper` measures function checksums **before**
+Ordering matters: e.g. `kagura-tamper` computes IR opcode fingerprints **before**
 CFG-mutating passes change the IR.
 
 `kagura-autoselect`, when enabled, runs ahead of everything below: it annotates
@@ -23,7 +23,7 @@ row order in that file and the two cannot drift.
   4. kagura-str-aes          → encrypt narrow strings (AES-128-CTR)
   5. kagura-wstr             → encrypt wide strings / CFString
   6. kagura-string-split     → fragment long string literals (after str/str-aes)
-  7. kagura-tamper           → integrity hash (before CFG changes)
+  7. kagura-tamper           → IR opcode fingerprint and function-entry check
   8. kagura-objc             → ObjC selector/class obfuscation
   9. kagura-jni              → JNI dynamic registration
  10. kagura-anti-debug       → anti-analysis checks

@@ -1,29 +1,8 @@
-//===-- VTableProtection.cpp - RTTI / vtable integrity protection ---------===//
+//===-- VTableProtection.cpp - RTTI names and vtable metadata     ---------===//
 //
-// 4.1.11: RTTI / vtable protection.
-//
-// C++ RTTI and virtual dispatch tables are a well-known attack surface:
-//   - Decompilers reconstruct class hierarchies from type_info symbols.
-//   - Vtable overwrite attacks corrupt function pointers in vtables.
-//   - RTTI type names reveal original class names in stripped binaries.
-//
-// This pass provides two mitigations:
-//
-// 1. Vtable integrity: for every vtable global (@_ZTV*), inject a per-entry
-//    XOR tag (using the module PAC key) so that a vtable overwrite must also
-//    know the runtime key to produce a valid forged pointer.  At each virtual
-//    call site (llvm.typetest / indirect call through vtable), insert a check:
-//      raw   = load fn_ptr from vtable
-//      unxor = raw ^ kagura_pac_key
-//      if inttoptr(unxor) != fn_ptr_expected → tamper detected
-//    NOTE: full vtable pointer integrity checking (VTI) requires compiler
-//    cooperation at every virtual call site; this pass provides a best-effort
-//    scan over the IR's indirect call patterns.
-//
-// 2. RTTI name obfuscation: for every @_ZTSN... (typeinfo name) string global,
-//    apply the same XOR encryption used by StringEncryptionPass and register
-//    a module constructor that decrypts the names in-place before first use.
-//    This prevents trivial class-hierarchy reconstruction from symbol tables.
+// Encrypt supported RTTI name fields and install a constructor to decrypt
+// them. For array-initialized vtables, record the name and entry count in
+// module metadata. Virtual dispatch and vtable entries are unchanged.
 //
 // Pass key:   "kagura-vtp"    (module pass)
 // CLI flag:   -kagura-vtp
@@ -219,26 +198,15 @@ static bool obfuscateRTTIName(GlobalVariable *GV, Module &M, PRNG &RNG) {
     return true;
 }
 
-// ---- Vtable XOR-tagging ---------------------------------------------------
+// ---- Vtable metadata ------------------------------------------------------
 
-/// XOR-tag all function pointer entries in a vtable with the kagura PAC key.
-/// Runtime verification of each tag is inserted at indirect call sites.
-static bool tagVTable(GlobalVariable *GV, Module &M, PRNG &RNG) {
+static bool recordVTableMetadata(GlobalVariable *GV, Module &M) {
     if (!GV->hasInitializer()) return false;
     auto *Arr = dyn_cast<ConstantArray>(GV->getInitializer());
     if (!Arr) return false;
 
     LLVMContext &Ctx = M.getContext();
     auto *Int64Ty = Type::getInt64Ty(Ctx);
-
-    // Generate a per-vtable compile-time tag (XOR with the runtime PAC key
-    // happens at load time via PointerAuthPass; here we just record the marker).
-    uint64_t CompileTag = RNG.next();
-    (void)CompileTag; // tag is embedded as metadata for tooling
-
-    // Attach a module-level named metadata node recording the vtable name and
-    // its expected entry count, so kagura_on_tamper_detected() can verify it
-    // at runtime via kagura_vtable_check().
     NamedMDNode *VTInfo = M.getOrInsertNamedMetadata("kagura.vtables");
     SmallVector<Metadata *, 2> Operands;
     Operands.push_back(MDString::get(Ctx, GV->getName()));
@@ -282,7 +250,7 @@ PreservedAnalyses VTableProtectionPass::run(Module &M, ModuleAnalysisManager &) 
                 Changed = true;
 
     for (auto *GV : VTables)
-        if (tagVTable(GV, M, RNG))
+        if (recordVTableMetadata(GV, M))
             Changed = true;
 
     return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();

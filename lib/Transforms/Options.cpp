@@ -53,7 +53,7 @@ cl::opt<std::string> DWARFMode(
     cl::init("keep"));
 
 cl::opt<bool> VTP("kagura-vtp",
-                  cl::desc("[Kagura] RTTI / vtable protection (C++ ABI)"),
+                  cl::desc("[Kagura] RTTI name encryption and vtable metadata (C++ ABI)"),
                   cl::init(false));
 
 cl::opt<bool> StringAggressive(

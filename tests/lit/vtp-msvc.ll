@@ -3,7 +3,7 @@
 ; VTableProtectionPass MSVC ABI test.
 ;
 ; Checks:
-;   1. ??_7 vtable is tagged (kagura.vtables metadata emitted).
+;   1. ??_7 vtable name and entry count are recorded in metadata.
 ;   2. ??_R0 TypeDescriptor name field is encrypted (plaintext ".?AVFoo@@" absent).
 ;   3. A module constructor for in-place decryption is injected.
 
@@ -12,7 +12,8 @@ target triple = "x86_64-pc-windows-msvc19.0.0"
 ; CHECK: @"??_R0extended" = internal constant { ptr, ptr, [10 x i8], i32 } { ptr null, ptr null, [10 x i8] c".?AVBar@@\00", i32 7 }
 ; CHECK-NOT: c".?AVFoo@@"
 ; CHECK: msvc_rtti_decrypt
-; CHECK: kagura.vtables
+; CHECK: !kagura.vtables = !{![[TABLE:[0-9]+]]}
+; CHECK: ![[TABLE]] = !{!"??_7Foo@@6B@", i64 2}
 
 ; MSVC vtable for class Foo
 @"??_7Foo@@6B@" = internal constant [2 x ptr] [

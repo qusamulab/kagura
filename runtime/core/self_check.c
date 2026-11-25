@@ -108,60 +108,17 @@ void kagura_self_check(void) {
         kagura_tamper_detected();
 }
 
-/* =========================================================================
- * Runtime FNV-1a hash check
- * ====================================================================== */
-
-/*
- * FNV-1a 32-bit offset basis — must match AntiTamper.cpp exactly.  Used below
- * only as a mixing constant for the guard tag; the hash itself lives in
- * core/hash.c.  KAGURA_FNV1A_PRIME used to be defined here too and was never
- * referenced.
+/* Function-entry checks. The compiler supplies an IR opcode fingerprint.
+ * The shipped runtime uses only the entry bytes and available symbol name
+ * when deciding whether to invoke the tamper response.
  */
 #define KAGURA_FNV1A_OFFSET_BASIS UINT32_C(0x811c9dc5)
 
-/*
- * kagura_runtime_hash_check - hook/patch detection for a function.
- *
- * Called by code injected by the AntiTamper LLVM pass at the entry of each
- * protected function.  The pass supplies:
- *   @fn            A pointer into the function's machine code.
- *   @expected_hash The FNV-1a hash of the function's IR opcode sequence
- *                  computed at compile time.
- *
- * The compile-time expected_hash is an FNV-1a hash over IR opcodes and is
- * NOT directly comparable to the raw machine-code bytes.  Instead, this
- * function uses expected_hash as a "magic tag" to verify that the function
- * pointer has not been redirected by a hook trampoline (e.g. Frida, fishhook).
- *
- * Detection strategy:
- *   1. Verify fn is not NULL.
- *   2. Check the first bytes for common hooking patterns (unconditional branch
- *      on ARM64, long JMP on x86-64) which indicate an inline hook.
- *   3. Mix expected_hash into the check so that each protected function has a
- *      unique guard value — removing the check (NOP-ing the call) is detectable
- *      by other layers.
- *   4. Use dladdr to verify the function belongs to the expected image; a
- *      foreign image address indicates a redirect.
- *
- * Every branch below is selected by target ARCHITECTURE or by the presence of
- * a dynamic loader, never by the operating system.  That is why this function
- * belongs in the portable source list: on an architecture with no pattern
- * table (32-bit ARM, RISC-V) it degrades to the NULL check and the dladdr
- * scan and still links, which is what the pass requires of it.
- *
- * False positives: this check does NOT re-hash machine bytes because alignment
- * padding, ASLR, and legitimate linker transforms make byte-level hashing
- * fragile.  The IR-opcode hash stored in expected_hash is used as an opaque
- * sentinel to defeat static patching of the immediate constant.
- */
 void kagura_runtime_hash_check(void *fn, uint32_t expected_hash) {
     if (!fn)
         return;
 
-    /* Use expected_hash to prevent the compiler from optimising away the
-     * parameter entirely.  XOR with a magic that expected_hash must satisfy
-     * to detect the constant being NOP-patched in the binary. */
+    /* Keep the compiler-provided tag observable. */
     volatile uint32_t tag = expected_hash ^ KAGURA_FNV1A_OFFSET_BASIS;
     (void)tag;
 
@@ -201,11 +158,7 @@ void kagura_runtime_hash_check(void *fn, uint32_t expected_hash) {
     }
 #endif
 
-    /* ---- Symbol name sanity check via dladdr ----
-     * If the function pointer has been redirected to a completely foreign
-     * symbol (different module path and different symbol name prefix), flag it.
-     * We only check for obviously injected names like "frida" or "substrate".
-     */
+    /* Check the loader's symbol name when available. */
 #if defined(__APPLE__) || defined(__ANDROID__) || defined(__linux__)
     {
         Dl_info fn_info;
