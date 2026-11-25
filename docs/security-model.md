@@ -27,7 +27,7 @@ or partially covered.
 |:---------|:---------------------|:----------------|
 | **Information Disclosure** | Static binary analysis (strings, IDA, Ghidra, Binary Ninja) | ✅ Strong — string encryption, CFG flattening, MBA, symbol hiding, RTTI obfuscation, DWARF strip |
 | **Information Disclosure** | Live memory inspection (Cheat Engine, GameGuardian, /proc/maps) | ✅ Strong — MVO/PE encrypt values at every store, `Protected<T>` adds shadow-copy detection |
-| **Tampering** | Binary patching (NOP-ing checks, replacing instructions) | ⚠️ Partial — `kagura-tamper` hashes whole functions at startup. `kagura-bbcheck` is scaffolding only: it emits per-block call sites, but the shipped `kagura_bb_check` always returns "intact" — see [below](#binary-patching-what-kagura-bbcheck-actually-does) |
+| **Tampering** | Binary patching (NOP-ing checks, replacing instructions) | ⚠️ Partial — `kagura-tamper` checks selected function-entry instructions and symbol names. `kagura-bbcheck` is scaffolding only: it emits per-block call sites, but the shipped `kagura_bb_check` always returns "intact" — see [below](#binary-patching-what-kagura-bbcheck-actually-does) |
 | **Tampering** | Loader hooking (Frida, Substrate, fishhook) | ✅ Medium — runtime detection probes for hook frameworks, suspicious dylib / .so scan |
 | **Tampering** | Debugger attach (ptrace, lldb, WinDbg) | ✅ Medium — `kagura-anti-debug` covers ptrace, IsDebuggerPresent, PEB heap flags, Frida ports |
 | **Information Disclosure** | Symbolic / concolic execution (angr, KLEE, S2E) | ⚠️ Partial — `kagura-fla` + `kagura-bcf` + `kagura-co` raise path explosion; see `tests/symbolic_exec/` for measurements |
@@ -48,7 +48,7 @@ Be explicit about the boundaries — these are real and need other controls.
 
 ### Binary patching: what `kagura-bbcheck` actually does
 `-kagura-bbcheck` emits a `kagura_bb_check(block_id, expected)` call at the top
-of each basic block and branches to the tamper hook when it returns zero. The
+of selected non-entry blocks and branches to the tamper hook when it returns zero. The
 shipped `kagura_bb_check` (`runtime/core/bb_check.c`) is a **weak,
 always-passing stub**: it ignores both arguments and returns "intact". As
 shipped, the pass detects no patching at all — you get the call sites and the
@@ -61,11 +61,9 @@ function, so it is not a unique key. There is nothing at run time to verify
 against. Making the pass real requires emitting post-codegen byte ranges into a
 table the runtime can walk, which is not implemented.
 
-For anti-patching today, use **`-kagura-tamper`**: it hashes loaded functions
-and calls `kagura_runtime_hash_check` / `kagura_self_check`, which do work.
-Note the assumption in [Pass order is
-preserved](#2-the-pass-order-is-preserved) — checksums are taken at a specific
-point in the pipeline.
+`-kagura-tamper` passes each instrumented function's address and IR opcode
+fingerprint to the runtime. The runtime checks selected entry instructions and
+symbol names. Whole-function machine-code hash verification is unimplemented.
 
 ### Plaintext server-side secrets
 Anything decrypted at runtime is plaintext **in registers and memory** for the
@@ -112,15 +110,14 @@ These are the assumptions that, when violated, weaken Kagura's protections.
 
 ### 1. The plugin is loaded for every translation unit
 If a single source file in the build is compiled without `-fpass-plugin=…`,
-its strings and CFG are plaintext. Build-system integration matters — see
-[Integration](integration/index.md) and audit the build with
-`scripts/cli/kagura-cli.py audit-log` or `-kagura-audit`.
+its strings and CFG are plaintext. Enable `-kagura-audit` and read the log
+with `scripts/cli/kagura-cli.py audit-view`. See [Integration](integration/index.md)
+for build configuration.
 
 ### 2. The pass order is preserved
-`kagura-tamper` measures function checksums **before** CFG-mutating passes
-run. If a third-party LLVM pass inserts itself between them, the checksums
-become wrong. See [Pass Order](pass-order.md). Run `verify-reproducible.sh`
-to confirm a fixed seed still produces identical IR.
+Changing the order changes which IR the passes see. For example, control-flow
+rewrites can change a function's IR opcode fingerprint. The registry defines
+the shipped order. See [Pass Order](pass-order.md).
 
 ### 3. The runtime library is linked
 `kagura-str-aes`, `kagura-anti-debug`, `kagura-tamper`, `kagura-pac`,

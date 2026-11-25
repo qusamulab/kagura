@@ -12,7 +12,7 @@ kagura/
 │   ├── VM.h + VMOpcodes.def  バイトコード契約。C ランタイムと共有
 │   └── game_protect.h      Protected<T> — 唯一の利用者向け公開ヘッダ
 ├── lib/Transforms/
-│   ├── ABI/                C++ RTTI 名と vtable 整合性
+│   ├── ABI/                C++ RTTI 名と vtable メタデータ
 │   ├── AntiAnalysis/       アンチデバッグ, 整合性, 呼び出し間接化, ハニー値
 │   ├── CFG/                制御フロー難読化パス
 │   ├── Data/               文字列 / 定数 / グローバル / ワイド文字列 / メモリ値暗号化

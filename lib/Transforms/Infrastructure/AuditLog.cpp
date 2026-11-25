@@ -20,20 +20,16 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "Support/ReportWriter.h"
 #include "kagura/Options.h"
 #include "kagura/Passes/Infrastructure.h"
 #include "kagura/Utils.h"
 
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/JSON.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/ErrorHandling.h"
 
 #include <chrono>
-#include <system_error>
-#include <mutex>
 
 using namespace llvm;
 
@@ -125,20 +121,7 @@ PreservedAnalyses AuditLogPass::run(Module &M, ModuleAnalysisManager &) {
                             ? "kagura_audit.json"
                             : opt::AuditLogOut.getValue();
 
-  std::error_code EC;
-  static std::mutex OutputMutex;
-  std::lock_guard<std::mutex> Guard(OutputMutex);
-  raw_fd_ostream OS(OutPath, EC, sys::fs::OF_Append | sys::fs::OF_Text);
-  if (EC)
-    report_fatal_error(Twine("[kagura] cannot open audit log: ") + EC.message(), false);
-  auto Lock = OS.lock();
-  if (!Lock)
-    report_fatal_error(Twine("[kagura] cannot lock audit log: ") +
-                       toString(Lock.takeError()), false);
-  OS << json::Value(std::move(Record)) << "\n";
-  OS.flush(); // Keep the lock until the entire JSONL record reaches the file.
-  if (OS.has_error())
-    report_fatal_error("[kagura] cannot write audit log", false);
+  appendReportRecord(OutPath, "audit log", std::move(Record));
 
   return PreservedAnalyses::all();
 }

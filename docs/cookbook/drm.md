@@ -49,8 +49,8 @@ invisible to the user.
 Everything STRONG plus `bbcheck` + `tamper` because:
 
 - A DRM binary's most common attack is `bsdiff` patching ("set `eax, 0`")
-- `tamper` catches whole-function modification at startup
-- `bbcheck` puts a per-basic-block checksum call site next to every branch —
+- `tamper` checks selected function-entry instructions and symbol names
+- `bbcheck` inserts checksum call sites in selected non-entry blocks —
   but you have to write the `kagura_bb_check` that decides whether a checksum
   is correct. The shipped one is a weak always-passing stub, so until you
   override it this row costs you code size and detects nothing. See

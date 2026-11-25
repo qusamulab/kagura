@@ -17,7 +17,7 @@ llvm_map_components_to_libnames(LLVM_LIBS
 # Data/StringSplit.cpp, Data/EncryptedLookupTable.cpp and everything under
 # Platform/ and Infrastructure/ were in the source list but in no group.
 set(KAGURA_PASS_DIRS
-  ABI              # C++ ABI: RTTI names, vtable integrity
+  ABI              # C++ ABI: RTTI names, vtable metadata
   AntiAnalysis     # anti-debug, anti-tamper, decoys, call indirection
   CFG              # control-flow structure
   Data             # constants, strings, globals, in-memory values

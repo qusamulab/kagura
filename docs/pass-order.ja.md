@@ -1,6 +1,6 @@
 # パス順序
 
-プラグインは `registerOptimizerLastEPCallback` でパスを自動登録するため、下記の順序は標準 `-O1` / `-O2` 最適化の**後**に実行されます。順序は重要です。例えば `kagura-tamper` は CFG を変更するパスの**前**に関数チェックサムを計測する必要があります。
+プラグインは `registerOptimizerLastEPCallback` でパスを自動登録するため、下記の順序は標準 `-O1` / `-O2` 最適化の**後**に実行されます。順序は重要です。例えば `kagura-tamper` は CFG を変更するパスの**前**にIR オペコードのハッシュを計算します。
 
 `kagura-autoselect` を有効にすると、以下のすべてに先行して実行されます。各関数にパスごとの判断をアノテーションとして書き込み、各パスがそれを読みます。フラグで既に有効になっている集合を狭めることしかできません。
 
@@ -16,7 +16,7 @@
   4. kagura-str-aes          → ナロー文字列暗号化 (AES-128-CTR)
   5. kagura-wstr             → ワイド文字列 / CFString 暗号化
   6. kagura-string-split     → 長い文字列リテラルを分割 (str/str-aes の後)
-  7. kagura-tamper           → 整合性ハッシュ (CFG 変更前)
+  7. kagura-tamper           → IR オペコードのハッシュと関数先頭での検査
   8. kagura-objc             → ObjC セレクタ/クラス名難読化
   9. kagura-jni              → JNI 動的登録
  10. kagura-anti-debug       → アンチ解析チェック

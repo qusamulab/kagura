@@ -155,12 +155,11 @@ for the Kotlin caller skeleton.
 
 ```c
 int kagura_etw_provider_present(const wchar_t *provider_guid);
-int kagura_etw_analysis_tool_check(void);   // checks Cheat Engine / Procmon / etc.
+int kagura_etw_analysis_tool_check(void);
 ```
 
-This module ships as a **stub** by default. Build with `-DKAGURA_ETW_FULL=1`
-and link `tdh.lib` to enable the real `TdhEnumerateProviders`-based
-enumeration — see the file's header comment for the implementation outline.
+Both entry points are stubs and always return zero. ETW provider enumeration
+is unimplemented, including in builds that define `KAGURA_ETW_FULL`.
 
 ## Source layout
 

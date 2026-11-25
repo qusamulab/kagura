@@ -129,10 +129,10 @@ JWT 署名の完全な検証はサーバー側で行う必要があります —
 
 ```c
 int kagura_etw_provider_present(const wchar_t *provider_guid);
-int kagura_etw_analysis_tool_check(void);   // Cheat Engine / Procmon 等を検出
+int kagura_etw_analysis_tool_check(void);
 ```
 
-このモジュールはデフォルトで**スタブ**として出荷されます。`-DKAGURA_ETW_FULL=1` でビルドし `tdh.lib` をリンクすると、実際の `TdhEnumerateProviders` ベースの列挙を有効化できます — 実装の概要はファイルのヘッダーコメントを参照。
+両関数は常に 0 を返します。ETW プロバイダーの列挙は未実装で、`KAGURA_ETW_FULL` を定義しても結果は同じです。
 
 ## ソースレイアウト
 

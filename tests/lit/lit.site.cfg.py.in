@@ -7,6 +7,7 @@
 # Keep this file free of literal generator expressions, including inside
 # comments — file(GENERATE) evaluates them wherever they appear.
 
+config.clang = "@LLVM_TOOLS_BINARY_DIR@/clang"
 config.opt = "@LLVM_TOOLS_BINARY_DIR@/opt"
 config.filecheck = "@FILECHECK_EXECUTABLE@"
 config.kagura_plugin = "@KAGURA_PLUGIN_PATH@"

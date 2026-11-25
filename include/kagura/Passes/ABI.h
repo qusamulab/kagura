@@ -12,9 +12,8 @@
 
 namespace kagura {
 
-/// Obfuscates C++ RTTI typeinfo name strings (_ZTS) using XOR
-/// encryption with a per-string key, and records vtable metadata for
-/// runtime integrity checking via kagura_vtable_check().
+/// Encrypts supported Itanium and MSVC RTTI names. Records the symbol name
+/// and entry count of array-initialized vtables for IR inspection.
 struct VTableProtectionPass
     : public llvm::PassInfoMixin<VTableProtectionPass> {
   llvm::PreservedAnalyses run(llvm::Module &M,

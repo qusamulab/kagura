@@ -22,14 +22,15 @@ symmap-view   Pretty-print / filter the symbol map produced by -kagura-symmap.
 import argparse
 import json
 import sys
-import os
+from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
-from datetime import datetime
 
 # Use the source checkout's shared library without requiring the MCP SDK.
 # Installed users can import the same library from the kagura-mcp wheel.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mcp" / "src"))
 from kagura_mcp.policy import generate_config, load_config, validate_config
+from kagura_mcp.reports import audit_records, symbol_pairs
 
 
 def cmd_config_gen(args):
@@ -85,78 +86,54 @@ def cmd_config_check(args):
 # ── Sub-command: audit-view ───────────────────────────────────────────────────
 
 def cmd_audit_view(args):
-    log_path = args.log or "kagura_audit.json"
-    if not os.path.exists(log_path):
-        print(f"Audit log not found: {log_path}", file=sys.stderr)
-        sys.exit(1)
+    log_path = Path(args.log or "kagura_audit.json")
 
-    records = []
-    with open(log_path) as f:
-        for line in f:
-            line = line.strip()
-            if not line:
+    def report_error(line, message):
+        print(f"{log_path}:{line}: {message}", file=sys.stderr)
+
+    total_funcs = total_records = 0
+    with log_path.open("rb") as stream:
+        for record in audit_records(stream, report_error):
+            module = record["module"]
+            if args.module_filter and args.module_filter not in module:
                 continue
+            funcs = record["functions"]
+            total_records += 1
+            total_funcs += len(funcs)
             try:
-                records.append(json.loads(line))
-            except json.JSONDecodeError as e:
-                print(f"Parse error: {e}", file=sys.stderr)
+                ts = datetime.fromtimestamp(record.get("timestamp", 0), timezone.utc)
+                time_text = ts.strftime("%Y-%m-%d %H:%M:%S UTC")
+            except (ValueError, OSError, OverflowError, TypeError):
+                time_text = "unknown"
+            print(f"\n{'='*60}")
+            print(f"Module   : {module}")
+            print(f"Time     : {time_text}")
+            if record.get("build_id"):
+                print(f"Build ID : {record['build_id']}")
+            print(f"Functions: {len(funcs)}")
 
-    if args.module_filter:
-        records = [r for r in records if args.module_filter in r.get("module", "")]
+            if args.sort_passes:
+                counts = Counter(p for fn in funcs for p in fn["passes"])
+                print(f"Passes   : {dict(counts.most_common())}")
+            else:
+                for fn in funcs:
+                    print(f"  {fn['name']} → [{', '.join(fn['passes'])}]")
 
-    total_funcs = 0
-    for rec in records:
-        ts = datetime.utcfromtimestamp(rec.get("timestamp", 0)).strftime("%Y-%m-%d %H:%M:%S")
-        module = rec.get("module", "<unknown>")
-        build_id = rec.get("build_id", "")
-        funcs = rec.get("functions", [])
-        total_funcs += len(funcs)
-        print(f"\n{'='*60}")
-        print(f"Module   : {module}")
-        print(f"Time     : {ts} UTC")
-        if build_id:
-            print(f"Build ID : {build_id}")
-        print(f"Functions: {len(funcs)}")
+    print(f"\nTotal: {total_funcs} function entries across {total_records} module records")
 
-        if args.sort_passes:
-            from collections import Counter
-            all_passes = [p for fn in funcs for p in fn.get("passes", [])]
-            pass_counts = Counter(all_passes)
-            print(f"Passes   : {dict(pass_counts.most_common())}")
-        else:
-            for fn in funcs:
-                passes = ", ".join(fn.get("passes", []))
-                print(f"  {fn.get('name', '?')} → [{passes}]")
-
-    print(f"\nTotal: {total_funcs} protected function(s) across {len(records)} module(s)")
-
-# ── Sub-command: symmap-view ──────────────────────────────────────────────────
 
 def cmd_symmap_view(args):
-    map_path = args.map or "kagura_symbols.json"
-    if not os.path.exists(map_path):
-        print(f"Symbol map not found: {map_path}", file=sys.stderr)
-        sys.exit(1)
-
-    with open(map_path) as f:
-        data = json.load(f)
-
-    symbols = data.get("symbols", data) if isinstance(data, dict) else data
-    if isinstance(symbols, dict):
-        symbols = [{"original": k, "obfuscated": v} for k, v in symbols.items()]
-
-    if args.filter:
-        symbols = [s for s in symbols
-                   if args.filter in s.get("original", "") or
-                      args.filter in s.get("obfuscated", "")]
-
-    print(f"{'Original':<50} {'Obfuscated'}")
-    print("-" * 80)
-    for s in symbols:
-        orig = s.get("original", "?")
-        obfs = s.get("obfuscated", "?")
-        print(f"{orig:<50} {obfs}")
-    print(f"\nTotal: {len(symbols)} symbol(s)")
+    map_path = Path(args.map or "kagura_symbols.json")
+    with map_path.open(encoding="utf-8") as stream:
+        print(f"{'Original':<50} {'Obfuscated'}")
+        print("-" * 80)
+        total = 0
+        for original, obfuscated in symbol_pairs(stream):
+            if args.filter and args.filter not in original and args.filter not in obfuscated:
+                continue
+            print(f"{original:<50} {obfuscated}")
+            total += 1
+        print(f"\nTotal: {total} symbol(s)")
 
 # ── Argument parsing ──────────────────────────────────────────────────────────
 

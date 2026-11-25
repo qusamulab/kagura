@@ -56,7 +56,7 @@ Why these choices:
   constants
 - **`fla` + `bcf`** with `bcf_prob: 60` — defeats Ghidra's CFG view in
   decompiler-resistant builds
-- **`tamper`** — catches binary patching by hashing the loaded text section
+- **`tamper`** — checks selected function-entry instructions and symbol names
 - **`bbcheck`** — emits a per-basic-block checksum call site. It only detects
   anything once you supply your own `kagura_bb_check`; the shipped one is a
   weak always-pass stub. See [Anti-Analysis

@@ -108,19 +108,44 @@ define void @consumer() noinline {
                 self.assertTrue(any(r["pass"] == "kagura-str" and r["status"] == "changed"
                                     for r in record["pass_results"]))
 
-    def test_parallel_audit_records_remain_complete_json_lines(self):
-        audit = self.root / "parallel.jsonl"
+    def test_parallel_reports_remain_complete_json_lines(self):
+        audit = self.root / "audit.jsonl"
+        symbols = self.root / "symbols.jsonl"
+        # Each symbol record spans multiple output buffers.
+        globals_ir = "".join(f"@kagura_report_{i} = global i32 {i}\n" for i in range(200))
+        input_ir = self.source.read_text() + globals_ir
+
         def compile_one(index):
+            source = self.root / f"input-{index}.ll"
+            source.write_text(input_ir)
             result = subprocess.run([options.tool, "-O1", "-kagura-sub", "-kagura-audit",
-                                     f"-kagura-audit-out={audit}", str(self.source),
+                                     f"-kagura-audit-out={audit}", "-kagura-symmap",
+                                     f"-kagura-symmap-out={symbols}", str(source),
                                      "-o", str(self.root / f"out-{index}.bc")],
                                     capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stderr)
+
         with ThreadPoolExecutor(max_workers=4) as pool:
             list(pool.map(compile_one, range(12)))
-        records = [json.loads(line) for line in audit.read_text().splitlines()]
-        self.assertEqual(len(records), 12)
-        self.assertTrue(all(r["functions"] for r in records))
+        for path, field in ((audit, "functions"), (symbols, "symbols")):
+            records = [json.loads(line) for line in path.read_text().splitlines()]
+            self.assertCountEqual((Path(r["module"]).name for r in records),
+                                  (f"input-{i}.ll" for i in range(12)))
+            self.assertTrue(all(r[field] for r in records))
+
+        cli = Path(__file__).resolve().parents[2] / "scripts/cli/kagura-cli.py"
+        result = subprocess.run([sys.executable, str(cli), "symmap-view", "--map", str(symbols),
+                                 "--filter", "kagura_report_"], capture_output=True, text=True,
+                                timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Total: 2400 symbol(s)", result.stdout)
+
+    def test_requested_symbol_path_errors_fail_build(self):
+        missing = self.root / "missing" / "symbols.jsonl"
+        result = self.run_tool("-O1", "-kagura-str", "-kagura-symmap",
+                               f"-kagura-symmap-out={missing}", success=False)
+        self.assertIn("cannot open symbol map", result.stderr)
+        self.assertIn(str(missing), result.stderr)
 
     def test_requested_audit_path_errors_fail_build(self):
         self.run_tool("-O1", "-kagura-sub", "-kagura-audit",
