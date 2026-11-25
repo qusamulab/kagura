@@ -1,23 +1,8 @@
 //===-- BasicBlockChecksum.cpp - Fine-grained BB-level integrity check ----===//
 //
-// 4.3.16: Injects a compile-time FNV-1a-32 checksum of each basic block's
-// instruction opcodes as a runtime guard.  At function entry a guard variable
-// is set to the expected checksum; the first instruction of each guarded block
-// recomputes the checksum and calls kagura_on_tamper_detected() if it mismatches.
-//
-// Strategy:
-//   For a random subset of basic blocks (30%):
-//   1. At compile time, compute FNV-1a-32 over the sequence of instruction
-//      opcode bytes in that block.
-//   2. At the START of the block, emit:
-//        if (kagura_bb_check(block_id, expected_cksum) == 0)
-//          kagura_on_tamper_detected();
-//   The runtime function kagura_bb_check() computes the opcode hash of the
-//   in-memory code at the given address and compares it to expected_cksum.
-//
-// Note: This is a "soft" check — binary patching that modifies instruction
-// opcodes will trip the check; NOPs inserted to change timing will not unless
-// they change opcode sequences checked.
+// Pass selected non-entry blocks' identifiers and IR opcode checksums to
+// kagura_bb_check. The shipped runtime returns intact. A custom check can
+// return zero to invoke the application's tamper response before continuing.
 //
 // Pass key:   "kagura-bbcheck"
 // CLI flag:   -kagura-bbcheck
@@ -98,11 +83,7 @@ PreservedAnalyses BasicBlockChecksumPass::run(Function &F,
       "kagura_on_tamper_detected",
       FunctionType::get(VoidTy, false));
 
-  bool Changed = false;
-
-  for (auto &[BB, ThisBlockID] : Targets) {
-    BlockID = ThisBlockID;
-
+  for (auto &[BB, TargetID] : Targets) {
     uint32_t Cksum = bbChecksum(*BB);
 
     // Insert check at the very beginning of the block.
@@ -110,7 +91,7 @@ PreservedAnalyses BasicBlockChecksumPass::run(Function &F,
     IRBuilder<> B(InsertPt);
 
     Value *ChkResult = B.CreateCall(BBCheckFn, {
-        ConstantInt::get(Int32Ty, BlockID),
+        ConstantInt::get(Int32Ty, TargetID),
         ConstantInt::get(Int32Ty, Cksum)});
     Value *IsZero = B.CreateICmpEQ(ChkResult, ConstantInt::get(Int32Ty, 0));
 
@@ -125,12 +106,10 @@ PreservedAnalyses BasicBlockChecksumPass::run(Function &F,
 
     IRBuilder<> TamperB(TamperBB);
     TamperB.CreateCall(TamperFn, {});
-    TamperB.CreateUnreachable();
-
-    Changed = true;
+    TamperB.CreateBr(ContinueBB);
   }
 
-  return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
+  return PreservedAnalyses::none();
 }
 
 } // namespace kagura

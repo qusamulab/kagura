@@ -16,6 +16,7 @@ config.suffixes = [".ll"]
 config.test_source_root = config.kagura_src_root
 config.test_exec_root = config.kagura_obj_root
 
+config.substitutions.append(("%clang", config.clang))
 config.substitutions.append(("%kagura_plugin", config.kagura_plugin))
 config.substitutions.append(("%FileCheck", config.filecheck))
 # Registered last so it cannot shadow the longer names above: lit applies

@@ -134,7 +134,7 @@ static Function *buildAntiDebugConstructor(Module &M, bool AntiFramework,
 
     IRBuilder<> DB(DetectBlock);
     DB.CreateCall(FTy, HookFn);
-    DB.CreateUnreachable();
+    DB.CreateBr(OkBlock); // An application override may return after reporting.
 
     return OkBlock;
   };

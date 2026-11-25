@@ -26,9 +26,8 @@
  *
  * kagura_tamper_detected is the noreturn entry point.  It runs the hook and,
  * if the hook returns (only possible for an override), falls through to a
- * hard stop.  Keeping the noreturn contract matters: call sites emitted by
- * AntiTamper.cpp and the `unreachable` the passes place after the call both
- * depend on it.
+ * hard stop.  Callers of the policy hook directly may continue
+ * when an application override returns.
  *
  *===----------------------------------------------------------------------===*/
 
