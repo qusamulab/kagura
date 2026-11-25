@@ -10,6 +10,7 @@ import subprocess
 
 from .binary import collect, structured_report
 from .policy import load_config, validate_config
+from .reports import audit_records
 
 
 class Workspace:
@@ -43,40 +44,32 @@ class Workspace:
             raise ValueError("offset must be >= 0 and limit must be in [1, 500].")
         source = self.file(path)
         rows, errors, counts = [], [], Counter()
-        records = total_errors = 0
-        for line_number, line in enumerate(source.read_text(encoding="utf-8").splitlines(), 1):
-            if not line.strip():
-                continue
-            try:
-                record = load_config(line)
-                if not isinstance(record, dict) or not isinstance(record.get("module"), str):
-                    raise ValueError("Expected a record with a module string.")
-                functions = record.get("functions")
-                if not isinstance(functions, list):
-                    raise ValueError("Expected a functions array.")
-                for item in functions:
-                    if (not isinstance(item, dict) or not isinstance(item.get("name"), str)
-                            or not isinstance(item.get("passes"), list)
-                            or any(not isinstance(p, str) for p in item["passes"])):
-                        raise ValueError("Expected function objects with name and passes strings.")
-                if module and module not in record["module"]:
+        records = total_functions = total_errors = 0
+        end = offset + limit
+
+        def record_error(line, message):
+            nonlocal total_errors
+            total_errors += 1
+            if len(errors) < 50:
+                errors.append({"line": line, "message": message})
+
+        with source.open("rb") as stream:
+            for record in audit_records(stream, record_error):
+                if module not in record["module"]:
                     continue
                 records += 1
-                for item in functions:
-                    if function and function not in item["name"]:
+                for item in record["functions"]:
+                    if function not in item["name"]:
                         continue
                     counts.update(item["passes"])
-                    rows.append({"module": record["module"], "name": item["name"],
-                                 "passes": item["passes"], "build_id": record.get("build_id", "")})
-            except (ValueError, TypeError) as exc:
-                total_errors += 1
-                if len(errors) < 50:
-                    errors.append({"line": line_number, "message": str(exc)})
-        end = offset + limit
+                    if offset <= total_functions < end:
+                        rows.append({"module": record["module"], "name": item["name"],
+                                     "passes": item["passes"], "build_id": record.get("build_id", "")})
+                    total_functions += 1
         return {"path": str(source), "complete": not total_errors,
-                "record_count": records, "function_entries": len(rows),
-                "pass_counts": dict(counts), "functions": rows[offset:end],
-                "next_offset": end if end < len(rows) else None,
+                "record_count": records, "function_entries": total_functions,
+                "pass_counts": dict(counts), "functions": rows,
+                "next_offset": end if end < total_functions else None,
                 "error_count": total_errors, "errors": errors,
                 "notes": ["Only metadata-marked functions appear; absence is not proof a function is unprotected.",
                           "Counts are log entries; appended builds can repeat a function."]}

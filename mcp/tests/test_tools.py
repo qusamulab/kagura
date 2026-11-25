@@ -164,6 +164,21 @@ class WorkspaceTests(unittest.TestCase):
         filtered = self.workspace.audit("audit.json", function="draw")
         self.assertEqual(filtered["function_entries"], 1)
 
+    def test_audit_pages_count_matches_after_invalid_utf8(self):
+        functions = [{"name": f"work_{i}", "passes": ["sub"]} for i in range(4)]
+        record = json.dumps({"module": "mod", "functions": functions}).encode()
+        (self.root / "audit.json").write_bytes(record + b"\n\xff\n" + record + b"\n")
+        page = self.workspace.audit("audit.json", offset=3, limit=2)
+        self.assertEqual([f["name"] for f in page["functions"]], ["work_3", "work_0"])
+        self.assertEqual(page["next_offset"], 5)
+        self.assertEqual(page["function_entries"], 8)
+        self.assertEqual(page["pass_counts"], {"sub": 8})
+        self.assertEqual(page["error_count"], 1)
+        self.assertEqual(page["errors"][0]["line"], 2)
+        beyond = self.workspace.audit("audit.json", offset=20)
+        self.assertEqual(beyond["functions"], [])
+        self.assertIsNone(beyond["next_offset"])
+
     def test_audit_error_details_are_bounded(self):
         (self.root / "audit.json").write_text("null\n" * 80)
         result = self.workspace.audit("audit.json")
@@ -199,6 +214,28 @@ class CLITests(unittest.TestCase):
     def run_cli(self, *args):
         return subprocess.run([sys.executable, str(REPO / "scripts/cli/kagura-cli.py"), *args],
                               capture_output=True, text=True, timeout=10)
+
+    def test_audit_view_reports_bad_lines_and_keeps_reading(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "audit.json"
+            record = {"module": "a.c", "functions": [{"name": "f", "passes": ["sub"]}]}
+            path.write_text("[]\n" + json.dumps(record) + "\n")
+            result = self.run_cli("audit-view", "--log", str(path), "--sort-passes")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(f"{path}:1:", result.stderr)
+            self.assertIn("{'sub': 1}", result.stdout)
+
+    def test_symmap_view_reads_legacy_maps_and_arrays(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "symbols.json"
+            entries = [{"original": "app", "obfuscated": "renamed"}]
+            for contents in (entries, {"app": "renamed"}, {"symbols": entries}):
+                with self.subTest(contents=contents):
+                    path.write_text(json.dumps(contents, indent=2))
+                    result = self.run_cli("symmap-view", "--map", str(path), "--filter", "app")
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertIn("renamed", result.stdout)
+                    self.assertIn("Total: 1 symbol(s)", result.stdout)
 
     def test_config_gen_emits_only_effective_policy_settings(self):
         result = self.run_cli("config-gen", "--profile", "FAST", "--seed", "0", "--allow", "pay*",

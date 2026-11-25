@@ -29,6 +29,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "Support/ReportWriter.h"
 #include "kagura/Options.h"
 #include "kagura/Passes/Infrastructure.h"
 #include "kagura/Utils.h"
@@ -37,9 +38,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/JSON.h"
-#include "llvm/Support/raw_ostream.h"
 
 #include <string>
 
@@ -122,16 +121,8 @@ PreservedAnalyses SymbolMapPass::run(Module &M, ModuleAnalysisManager &) {
   if (OutPath.empty())
     OutPath = "kagura_symbols.json";
 
-  std::error_code EC;
-  raw_fd_ostream Out(OutPath, EC,
-                     sys::fs::OF_Append | sys::fs::OF_Text);
-  if (EC) {
-    errs() << "[kagura] SymbolMap: cannot open " << OutPath
-           << ": " << EC.message() << "\n";
-    return PreservedAnalyses::all();
-  }
+  appendReportRecord(OutPath, "symbol map", std::move(ModuleEntry));
 
-  Out << json::Value(std::move(ModuleEntry)) << "\n";
   return PreservedAnalyses::all(); // read-only analysis
 }
 
